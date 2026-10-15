@@ -1,33 +1,26 @@
 import time
 
-from PySide6.QtCore import QEasingCurve, QEvent, QPoint, QPropertyAnimation, Qt
+from PySide6.QtCore import QEasingCurve, QEvent, QPoint, QPropertyAnimation, Qt, QTimer
 from PySide6.QtGui import QCloseEvent, QHideEvent, QResizeEvent
 from PySide6.QtWidgets import (
+    QApplication,
     QGridLayout,
     QLabel,
     QMainWindow,
     QScrollArea,
-    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
+from . import theme
 from .config import Config
 from .plugin_base import Plugin, PluginContext
-from .widgets import DetailPage, Tile
+from .widgets import DetailPage, PageStack, Tile
 
-POPUP_STYLE = """
-#panel {
-    background: palette(window);
-    border: 1px solid palette(mid);
-    border-top: none;
-    border-bottom-left-radius: 14px;
-    border-bottom-right-radius: 14px;
-}
-"""
 COLUMNS = 2
-SHOW_MS = 200
-HIDE_MS = 160
+SHOW_MS = 340
+HIDE_MS = 260
+GRACE_S = 0.6  # ignore focus loss right after opening (compositor may bounce activation)
 
 
 class _Holder(QWidget):
@@ -52,6 +45,8 @@ class MainWindow(QMainWindow):
         self.hide_on_close = False  # set by the app when a tray icon exists
         self.last_hidden = 0.0  # time.monotonic() of the last hide, for tray click races
         self._hiding = False
+        self._opened_at = 0.0
+        self._show_token = 0
 
         holder = _Holder()
         self.panel = holder.panel
@@ -60,12 +55,14 @@ class MainWindow(QMainWindow):
             # Frameless slide-down popup; the KWin script in kwin/ places it under the panel.
             self.setWindowFlags(Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint)
             self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-            self.panel.setStyleSheet(POPUP_STYLE)
             self.resize(460, 420)
         else:
             self.resize(560, 480)
+        # app-wide: a stylesheet on the panel would reset a palette set on the panel itself
+        QApplication.setPalette(theme.dark_palette())
+        self.panel.setStyleSheet(theme.stylesheet(popup))
 
-        self.stack = QStackedWidget()
+        self.stack = PageStack()
         self.stack.addWidget(self._build_home(config, plugins, errors))
         self.pages: dict[str, QWidget] = {}
         for plugin in plugins:
@@ -74,21 +71,26 @@ class MainWindow(QMainWindow):
             page.back.connect(self.show_home)
             self.stack.addWidget(page)
             self.pages[plugin.id] = page
-        QVBoxLayout(self.panel).addWidget(self.stack)
+        panel_layout = QVBoxLayout(self.panel)
+        panel_layout.setContentsMargins(1, 0, 1, 1)
+        panel_layout.addWidget(self.stack)
 
         self._anim = QPropertyAnimation(self.panel, b"pos", self)
         self._anim.finished.connect(self._animation_finished)
 
     def _build_home(self, config: Config, plugins: list[Plugin], errors: list[str]) -> QWidget:
         self._contexts = {p.id: PluginContext(config, p.id) for p in plugins}
+        self.tiles: list[Tile] = []
         content = QWidget()
         grid = QGridLayout(content)
+        grid.setContentsMargins(12, 12, 12, 12)
         grid.setSpacing(10)
         for column in range(COLUMNS):
             grid.setColumnStretch(column, 1)
         for index, plugin in enumerate(plugins):
             tile = Tile(plugin, self._contexts[plugin.id])
             tile.opened.connect(lambda pid=plugin.id: self.open_plugin(pid))
+            self.tiles.append(tile)
             grid.addWidget(tile, index // COLUMNS, index % COLUMNS)
         rows = (len(plugins) + COLUMNS - 1) // COLUMNS
         if not plugins:
@@ -120,17 +122,36 @@ class MainWindow(QMainWindow):
     def show_animated(self) -> None:
         self._anim.stop()
         self._hiding = False
+        self._show_token += 1
         self.show_home()
+        self._opened_at = time.monotonic()
         if not self.popup:
             self.show()
             self.raise_()
             self.activateWindow()
             return
-        self.panel.move(0, -self.height())
+        self.panel.move(0, -self.height())  # fully above, invisible until the slide starts
         self.show()
         self.raise_()
         self.activateWindow()
+        self._start_when_exposed(self._show_token, 0)
+
+    def _start_when_exposed(self, token: int, tries: int) -> None:
+        """Wait for the compositor to map the window, else the first part of the slide is lost."""
+        if token != self._show_token:
+            return
+        handle = self.windowHandle()
+        if (handle is not None and handle.isExposed()) or tries >= 50:
+            QTimer.singleShot(40, lambda: self._begin_show_slide(token))
+        else:
+            QTimer.singleShot(8, lambda: self._start_when_exposed(token, tries + 1))
+
+    def _begin_show_slide(self, token: int) -> None:
+        if token != self._show_token or self._hiding or not self.isVisible():
+            return
         self._slide(QPoint(0, 0), SHOW_MS, QEasingCurve.Type.OutCubic)
+        for index, tile in enumerate(self.tiles):
+            tile.play_intro(90 + 45 * index)
 
     def hide_animated(self) -> None:
         if not self.isVisible() or self._hiding:
@@ -138,6 +159,7 @@ class MainWindow(QMainWindow):
         if not self.popup:
             self.hide()
             return
+        self._show_token += 1  # cancels a pending show
         self._hiding = True
         self._slide(QPoint(0, -self.height()), HIDE_MS, QEasingCurve.Type.InCubic)
 
@@ -169,6 +191,7 @@ class MainWindow(QMainWindow):
             and self.popup
             and self.isVisible()
             and not self.isActiveWindow()
+            and time.monotonic() - self._opened_at > GRACE_S
         ):
             self.hide_animated()
         super().changeEvent(event)

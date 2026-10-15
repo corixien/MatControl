@@ -4,9 +4,10 @@ Copy this file to matcontrol/plugins/<name>.py and edit. See HOWTOADDAFUNCTION.m
 To preview it in the app: MATCONTROL_LOAD_EXAMPLE=1 python -m matcontrol
 """
 
-from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from ..plugin_base import Plugin, PluginContext
+from ..widgets import Button
 
 
 class ExamplePlugin(Plugin):
@@ -32,7 +33,7 @@ class ExamplePlugin(Plugin):
         widget = QWidget()
         layout = QVBoxLayout(widget)
         label = QLabel()
-        button = QPushButton("Zählen")
+        button = Button("Zählen", primary=True)
 
         def refresh() -> None:
             label.setText(f"Klicks: {ctx.settings.get('clicks', 0)}")

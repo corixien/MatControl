@@ -11,7 +11,7 @@ MatControl: Python 3 + PySide6 control center (tray popup that slides down under
 
 ## Layout
 
-- `matcontrol/app.py` entry, tray. `window.py` popup window, slide animation, home grid + detail pages. `widgets.py` Tile, Switch, DetailPage. `config.py` JSON config. `plugin_base.py` API. `plugin_loader.py` discovery.
+- `matcontrol/app.py` entry, tray. `window.py` popup window, slide animation, home grid + detail pages. `widgets.py` animated Tile, Switch, Button, IconButton, DetailPage, PageStack, Fader. `theme.py` colors (#0f0f0f background) + stylesheet. `config.py` JSON config. `plugin_base.py` API. `plugin_loader.py` discovery.
 - `matcontrol/plugins/*.py` one plugin each; `_`-prefixed files are ignored (`_example.py` is the template).
 - Adding a function: follow `HOWTOADDAFUNCTION.md`. Do not edit core files for that.
 
@@ -19,6 +19,7 @@ MatControl: Python 3 + PySide6 control center (tray popup that slides down under
 
 - Root actions via `pkexec`, never `sudo`, never stored passwords.
 - External commands via `QProcess`, UI thread never blocks.
+- Everything animates (Fader); colors only from `theme.py`; flat tones, no gradients.
 - Settings only through `ctx.settings` / `ctx.save()`.
 - No scope creep: no linter, no packaging, no new framework unless asked.
 

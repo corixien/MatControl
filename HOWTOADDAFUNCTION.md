@@ -16,6 +16,8 @@ Every function of MatControl is one plugin: one Python file in `matcontrol/plugi
 ## Rules
 
 - UI text is German.
+- Look: dark, flat, monochrome, no gradients. Colors live only in `matcontrol/theme.py`; never hard-code colors in a plugin.
+- Every state change animates. Use `Button` and `Switch` from `matcontrol/widgets.py` instead of `QPushButton`/`QCheckBox`. For your own animated widget use `Fader` (an animated 0..1 value that repaints the widget); never snap between states.
 - Persistent settings: `ctx.settings` (a dict), then `ctx.save()`. Never write config files yourself.
 - Long-running or external commands: use `QProcess`, never block the UI thread with `subprocess.run`.
 - Commands that need root: run them through `pkexec` (Polkit dialog). Never hard-code `sudo`, never store passwords.

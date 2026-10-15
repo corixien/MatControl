@@ -145,8 +145,51 @@ def test_window_home_navigation(qapp, tmp_path):
 def test_popup_slides_in_and_out(qapp, tmp_path):
     window = MainWindow(Config(tmp_path / "c.json"), [Toggler()], [], popup=True)
     window.show_animated()
-    QTest.qWait(400)
+    QTest.qWait(900)
     assert window.panel.pos().y() == 0
     window.hide_animated()
-    QTest.qWait(400)
+    QTest.qWait(500)
     assert not window.isVisible()
+
+
+def test_hide_cancels_pending_show(qapp, tmp_path):
+    window = MainWindow(Config(tmp_path / "c.json"), [Toggler()], [], popup=True)
+    window.show_animated()
+    window.hide_animated()
+    QTest.qWait(900)
+    assert not window.isVisible()
+
+
+def test_page_stack_slides_and_settles(qapp, tmp_path):
+    window = MainWindow(Config(tmp_path / "c.json"), [Toggler()], [], popup=False)
+    window.show()
+    QTest.qWait(50)
+    window.open_plugin("toggler")
+    QTest.qWait(600)
+    page = window.pages["toggler"]
+    assert page.isVisible() and page.pos().x() == 0
+    window.show_home()
+    QTest.qWait(600)
+    assert not page.isVisible()
+
+
+def test_switch_animates_to_final_state(qapp):
+    from matcontrol.widgets import Switch
+
+    switch = Switch()
+    switch.show()
+    switch.setChecked(True)
+    QTest.qWait(400)
+    assert switch.progress.value == 1.0
+    switch.setChecked(False)
+    QTest.qWait(400)
+    assert switch.progress.value == 0.0
+
+
+def test_fader_is_instant_while_hidden(qapp):
+    from matcontrol.widgets import Fader
+
+    widget = QWidget()
+    fader = Fader(widget)
+    fader.to(1.0)
+    assert fader.value == 1.0
