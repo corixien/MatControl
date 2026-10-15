@@ -1,6 +1,6 @@
 import time
 
-from PySide6.QtCore import QEasingCurve, QEvent, QPoint, QPropertyAnimation, Qt, QTimer
+from PySide6.QtCore import QEasingCurve, QEvent, QObject, Qt, QTimer
 from PySide6.QtGui import QCloseEvent, QHideEvent, QResizeEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -20,7 +20,51 @@ from .widgets import DetailPage, PageStack, Tile
 COLUMNS = 2
 SHOW_MS = 340
 HIDE_MS = 260
+OVERSHOOT = 24  # extra distance so no sub-pixel edge of the panel stays visible when closed
+SETTLE_MS = 100  # after the window is exposed, give KWin time to place it
+MAX_STEP_S = 1 / 30  # a stall (window mapping, placement) delays the slide instead of skipping it
 GRACE_S = 0.6  # ignore focus loss right after opening (compositor may bounce activation)
+
+
+class _Slide(QObject):
+    """Vertical slide of the panel that never skips ahead after a stall."""
+
+    def __init__(self, panel: QWidget, on_finished) -> None:
+        super().__init__(panel)
+        self._panel = panel
+        self._on_finished = on_finished
+        self._timer = QTimer(self)
+        self._timer.setInterval(8)
+        self._timer.setTimerType(Qt.TimerType.PreciseTimer)
+        self._timer.timeout.connect(self._tick)
+        self._start_y = self._end_y = 0
+        self._duration = 1.0
+        self._elapsed = 0.0
+        self._last = 0.0
+        self._curve = QEasingCurve()
+
+    def start(self, end_y: int, duration_ms: int, curve: QEasingCurve.Type) -> None:
+        self._start_y = self._panel.y()
+        self._end_y = end_y
+        self._duration = duration_ms / 1000
+        self._curve = QEasingCurve(curve)
+        self._elapsed = 0.0
+        self._last = time.monotonic()
+        self._timer.start()
+
+    def stop(self) -> None:
+        self._timer.stop()
+
+    def _tick(self) -> None:
+        now = time.monotonic()
+        self._elapsed += min(now - self._last, MAX_STEP_S)
+        self._last = now
+        t = min(self._elapsed / self._duration, 1.0)
+        y = self._start_y + (self._end_y - self._start_y) * self._curve.valueForProgress(t)
+        self._panel.move(0, round(y))
+        if t >= 1.0:
+            self._timer.stop()
+            self._on_finished()
 
 
 class _Holder(QWidget):
@@ -75,12 +119,10 @@ class MainWindow(QMainWindow):
         panel_layout.setContentsMargins(1, 0, 1, 1)
         panel_layout.addWidget(self.stack)
 
-        self._anim = QPropertyAnimation(self.panel, b"pos", self)
-        self._anim.finished.connect(self._animation_finished)
+        self._slide_anim = _Slide(self.panel, self._animation_finished)
 
     def _build_home(self, config: Config, plugins: list[Plugin], errors: list[str]) -> QWidget:
         self._contexts = {p.id: PluginContext(config, p.id) for p in plugins}
-        self.tiles: list[Tile] = []
         content = QWidget()
         grid = QGridLayout(content)
         grid.setContentsMargins(12, 12, 12, 12)
@@ -90,7 +132,6 @@ class MainWindow(QMainWindow):
         for index, plugin in enumerate(plugins):
             tile = Tile(plugin, self._contexts[plugin.id])
             tile.opened.connect(lambda pid=plugin.id: self.open_plugin(pid))
-            self.tiles.append(tile)
             grid.addWidget(tile, index // COLUMNS, index % COLUMNS)
         rows = (len(plugins) + COLUMNS - 1) // COLUMNS
         if not plugins:
@@ -120,7 +161,7 @@ class MainWindow(QMainWindow):
     # slide animation
 
     def show_animated(self) -> None:
-        self._anim.stop()
+        self._slide_anim.stop()
         self._hiding = False
         self._show_token += 1
         self.show_home()
@@ -130,7 +171,7 @@ class MainWindow(QMainWindow):
             self.raise_()
             self.activateWindow()
             return
-        self.panel.move(0, -self.height())  # fully above, invisible until the slide starts
+        self.panel.move(0, self._hidden_y())  # fully above, invisible until the slide starts
         self.show()
         self.raise_()
         self.activateWindow()
@@ -142,16 +183,14 @@ class MainWindow(QMainWindow):
             return
         handle = self.windowHandle()
         if (handle is not None and handle.isExposed()) or tries >= 50:
-            QTimer.singleShot(40, lambda: self._begin_show_slide(token))
+            QTimer.singleShot(SETTLE_MS, lambda: self._begin_show_slide(token))
         else:
             QTimer.singleShot(8, lambda: self._start_when_exposed(token, tries + 1))
 
     def _begin_show_slide(self, token: int) -> None:
         if token != self._show_token or self._hiding or not self.isVisible():
             return
-        self._slide(QPoint(0, 0), SHOW_MS, QEasingCurve.Type.OutCubic)
-        for index, tile in enumerate(self.tiles):
-            tile.play_intro(90 + 45 * index)
+        self._slide(0, SHOW_MS, QEasingCurve.Type.OutCubic)
 
     def hide_animated(self) -> None:
         if not self.isVisible() or self._hiding:
@@ -161,7 +200,7 @@ class MainWindow(QMainWindow):
             return
         self._show_token += 1  # cancels a pending show
         self._hiding = True
-        self._slide(QPoint(0, -self.height()), HIDE_MS, QEasingCurve.Type.InCubic)
+        self._slide(self._hidden_y(), HIDE_MS, QEasingCurve.Type.InCubic)
 
     def toggle(self) -> None:
         """Tray click: open when closed, close when open."""
@@ -170,13 +209,12 @@ class MainWindow(QMainWindow):
         elif not self.isVisible() and time.monotonic() - self.last_hidden > 0.25:
             self.show_animated()
 
-    def _slide(self, end: QPoint, duration: int, curve: QEasingCurve.Type) -> None:
-        self._anim.stop()
-        self._anim.setDuration(duration)
-        self._anim.setEasingCurve(curve)
-        self._anim.setStartValue(self.panel.pos())
-        self._anim.setEndValue(end)
-        self._anim.start()
+    def _hidden_y(self) -> int:
+        return -(self.height() + OVERSHOOT)
+
+    def _slide(self, end_y: int, duration: int, curve: QEasingCurve.Type) -> None:
+        self._slide_anim.stop()
+        self._slide_anim.start(end_y, duration, curve)
 
     def _animation_finished(self) -> None:
         if self._hiding:

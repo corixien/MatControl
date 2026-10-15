@@ -1,19 +1,38 @@
-// Places the MatControl popup at the top right of the usable screen area,
-// directly under a top panel, and keeps it out of taskbar/switcher.
-const MARGIN_RIGHT = 6; // flush with the panel on top so the slide-down emerges from behind it
+// Places the MatControl popup flush under the top panel (where the tray icon lives),
+// top-right, even on multi-screen setups where only one screen has a panel.
+const MARGIN_RIGHT = 6;
+
+function topPanel() {
+    for (const w of workspace.windowList()) {
+        if (!w.dock || String(w.resourceClass) !== "plasmashell") {
+            continue;
+        }
+        const g = w.frameGeometry;
+        const screenTop = w.output && w.output.geometry ? w.output.geometry.y : 0;
+        if (g.y <= screenTop + 1 && g.width > g.height) {
+            return g;
+        }
+    }
+    return null;
+}
 
 function place(win) {
-    const area = workspace.clientArea(KWin.MaximizeArea, win);
     const geo = win.frameGeometry;
     if (geo.width <= 0 || geo.height <= 0) {
         return false;
     }
-    win.frameGeometry = {
-        x: area.x + area.width - geo.width - MARGIN_RIGHT,
-        y: area.y,
-        width: geo.width,
-        height: geo.height,
-    };
+    const panel = topPanel();
+    let x;
+    let y;
+    if (panel) {
+        x = panel.x + panel.width - geo.width - MARGIN_RIGHT;
+        y = panel.y + panel.height;
+    } else {
+        const area = workspace.clientArea(KWin.MaximizeArea, win);
+        x = area.x + area.width - geo.width - MARGIN_RIGHT;
+        y = area.y;
+    }
+    win.frameGeometry = { x: x, y: y, width: geo.width, height: geo.height };
     return true;
 }
 

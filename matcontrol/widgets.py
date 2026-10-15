@@ -24,7 +24,6 @@ from PySide6.QtGui import QColor, QIcon, QMouseEvent, QPainter, QPalette, QPixma
 from PySide6.QtWidgets import (
     QAbstractButton,
     QFrame,
-    QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -268,7 +267,6 @@ class Tile(QFrame):
         self.timer.setInterval(5000)
         self.timer.timeout.connect(self.refresh)
         self.timer.start()
-        self._intro: QPropertyAnimation | None = None
         self.refresh()
 
     def refresh(self) -> None:
@@ -278,22 +276,6 @@ class Tile(QFrame):
         self.on.to(1.0 if active else 0.0)
         self.icon_button.set_tone(bool(active))
         self.subtitle.setText(self.plugin.tile_subtitle(self.ctx))
-
-    def play_intro(self, delay_ms: int = 0) -> None:
-        """Fade the tile in (used with a stagger when the popup opens)."""
-        if self._intro is not None:
-            self._intro.stop()
-        effect = QGraphicsOpacityEffect(self)
-        effect.setOpacity(0.0)
-        self.setGraphicsEffect(effect)
-        anim = QPropertyAnimation(effect, b"opacity", self)
-        anim.setDuration(280)
-        anim.setStartValue(0.0)
-        anim.setEndValue(1.0)
-        anim.setEasingCurve(QEasingCurve.Type.OutCubic)
-        anim.finished.connect(lambda: self.setGraphicsEffect(None))
-        self._intro = anim
-        QTimer.singleShot(delay_ms, anim.start)
 
     def _apply_text_colors(self) -> None:
         for label, off, on in (
