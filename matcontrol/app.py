@@ -1,5 +1,6 @@
 import logging
 import sys
+import time
 
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
@@ -26,11 +27,13 @@ def build_tray(app: QApplication, window: MainWindow) -> QSystemTrayIcon | None:
     tray.setContextMenu(menu)
 
     def on_activated(reason: QSystemTrayIcon.ActivationReason) -> None:
-        if reason == QSystemTrayIcon.ActivationReason.Trigger:
-            if window.isVisible():
-                window.hide()
-            else:
-                open_action.trigger()
+        if reason != QSystemTrayIcon.ActivationReason.Trigger:
+            return
+        if window.isVisible():
+            window.hide()
+        elif time.monotonic() - window.last_hidden > 0.25:
+            # a popup that just lost focus to this very click must stay closed
+            open_action.trigger()
 
     tray.activated.connect(on_activated)
     tray.show()
@@ -41,10 +44,11 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     app = QApplication(sys.argv)
     app.setApplicationName("MatControl")
+    app.setDesktopFileName("matcontrol")  # Wayland app_id, matched by the KWin script
     app.setQuitOnLastWindowClosed(False)
 
     plugins, errors = discover()
-    window = MainWindow(Config(), plugins, errors)
+    window = MainWindow(Config(), plugins, errors, popup="--window" not in sys.argv[1:])
     tray = build_tray(app, window)
     window.hide_on_close = tray is not None
 

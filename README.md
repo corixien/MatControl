@@ -18,7 +18,18 @@ python3 -m venv --system-site-packages .venv
 .venv/bin/python -m matcontrol
 ```
 
-`--minimized` starts in the tray only. Config lives in `~/.config/matcontrol/config.json`.
+`--minimized` starts in the tray only, `--window` opens a normal decorated window instead of the popup. Config lives in `~/.config/matcontrol/config.json`.
+
+## Panel popup (KDE Plasma 6, Wayland)
+
+By default the window is a frameless popup that closes when it loses focus. Wayland apps cannot position their own windows, so a small KWin script places it at the top right under the panel:
+
+```bash
+kwin/install.sh              # install and enable (per user, no root)
+kwin/install.sh --uninstall  # remove
+```
+
+Without the script the popup still works, but KWin picks its position.
 
 ## Test
 
