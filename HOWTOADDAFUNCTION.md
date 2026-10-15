@@ -19,7 +19,7 @@ Every function of MatControl is one plugin: one Python file in `matcontrol/plugi
 - Persistent settings: `ctx.settings` (a dict), then `ctx.save()`. Never write config files yourself.
 - Long-running or external commands: use `QProcess`, never block the UI thread with `subprocess.run`.
 - Commands that need root: run them through `pkexec` (Polkit dialog). Never hard-code `sudo`, never store passwords.
-- A plugin that raises on import is shown in the "Fehler" page and does not crash the app.
+- A plugin that raises on import is listed as an error on the home page and does not crash the app.
 - No secrets in the repo (it is public).
 - Do not change core files (`app.py`, `window.py`, `plugin_loader.py`) just to add a function. If the plugin API is missing something, extend `plugin_base.py` and update this file.
 
