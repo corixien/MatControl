@@ -1,6 +1,5 @@
 import logging
 import sys
-import time
 
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
@@ -18,7 +17,7 @@ def build_tray(app: QApplication, window: MainWindow) -> QSystemTrayIcon | None:
 
     menu = QMenu()
     open_action = QAction("Öffnen", menu)
-    open_action.triggered.connect(lambda: (window.show(), window.raise_(), window.activateWindow()))
+    open_action.triggered.connect(window.show_animated)
     quit_action = QAction("Beenden", menu)
     quit_action.triggered.connect(lambda: (setattr(window, "hide_on_close", False), app.quit()))
     menu.addAction(open_action)
@@ -27,13 +26,8 @@ def build_tray(app: QApplication, window: MainWindow) -> QSystemTrayIcon | None:
     tray.setContextMenu(menu)
 
     def on_activated(reason: QSystemTrayIcon.ActivationReason) -> None:
-        if reason != QSystemTrayIcon.ActivationReason.Trigger:
-            return
-        if window.isVisible():
-            window.hide()
-        elif time.monotonic() - window.last_hidden > 0.25:
-            # a popup that just lost focus to this very click must stay closed
-            open_action.trigger()
+        if reason == QSystemTrayIcon.ActivationReason.Trigger:
+            window.toggle()
 
     tray.activated.connect(on_activated)
     tray.show()
@@ -53,5 +47,5 @@ def main() -> int:
     window.hide_on_close = tray is not None
 
     if "--minimized" not in sys.argv[1:] or tray is None:
-        window.show()
+        window.show_animated()
     return app.exec()

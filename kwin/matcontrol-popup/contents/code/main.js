@@ -1,6 +1,6 @@
 // Places the MatControl popup at the top right of the usable screen area,
 // directly under a top panel, and keeps it out of taskbar/switcher.
-const MARGIN = 6;
+const MARGIN_RIGHT = 6; // flush with the panel on top so the slide-down emerges from behind it
 
 function place(win) {
     const area = workspace.clientArea(KWin.MaximizeArea, win);
@@ -9,8 +9,8 @@ function place(win) {
         return false;
     }
     win.frameGeometry = {
-        x: area.x + area.width - geo.width - MARGIN,
-        y: area.y + MARGIN,
+        x: area.x + area.width - geo.width - MARGIN_RIGHT,
+        y: area.y,
         width: geo.width,
         height: geo.height,
     };

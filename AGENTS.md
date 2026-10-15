@@ -1,16 +1,17 @@
 # AGENTS.md
 
-MatControl: Python 3 + PySide6 control center (window + tray) for Fedora/KDE. One plugin per function. UI language German. Public repo, no secrets.
+MatControl: Python 3 + PySide6 control center (tray popup that slides down under the top panel) for Fedora/KDE. Home page of Samsung-style tiles, one plugin per tile. UI language German. Public repo, no secrets.
 
 ## Commands
 
 - Setup: `python3 -m venv --system-site-packages .venv && .venv/bin/pip install -r requirements-dev.txt`
-- Run: `.venv/bin/python -m matcontrol` (`--minimized` = tray only)
+- Run: `.venv/bin/python -m matcontrol` (`--minimized` = tray only, `--window` = normal window, `MATCONTROL_LOAD_EXAMPLE=1` = show the example tile)
+- KWin placement script: `kwin/install.sh` (`--uninstall`); positions the popup top right under the panel
 - Test: `.venv/bin/python -m pytest` (headless, `QT_QPA_PLATFORM=offscreen` set in `tests/conftest.py`)
 
 ## Layout
 
-- `matcontrol/app.py` entry, tray. `window.py` sidebar + stacked pages. `config.py` JSON config. `plugin_base.py` API. `plugin_loader.py` discovery.
+- `matcontrol/app.py` entry, tray. `window.py` popup window, slide animation, home grid + detail pages. `widgets.py` Tile, Switch, DetailPage. `config.py` JSON config. `plugin_base.py` API. `plugin_loader.py` discovery.
 - `matcontrol/plugins/*.py` one plugin each; `_`-prefixed files are ignored (`_example.py` is the template).
 - Adding a function: follow `HOWTOADDAFUNCTION.md`. Do not edit core files for that.
 

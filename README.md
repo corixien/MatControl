@@ -1,6 +1,6 @@
 # MatControl
 
-Small control center for a Linux (Fedora/KDE) desktop. One window plus tray icon, one plugin per function.
+Small control center for a Linux (Fedora/KDE) desktop. Tray popup that slides down from the top panel: a home page of tiles, one per function. Click a tile icon to switch it on/off, click beside it for the details and settings (like Samsung quick settings).
 
 Planned plugins:
 
