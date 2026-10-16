@@ -17,8 +17,18 @@ SOCKET_NAME = "matcontrol"
 TRAY_RETRIES = 60  # autostart can run before the panel (and its tray) exists
 
 
+ICON_SIZES = (16, 22, 24, 32, 48, 64, 128, 256)
+
+
 def app_icon() -> QIcon:
-    return QIcon.fromTheme("matcontrol", QIcon(str(ICON_PATH)))
+    """The app icon as pixmaps, deliberately without a theme name: the tray (StatusNotifier) sends
+    a name to the panel when there is one, and the panel shows nothing if its icon theme cannot
+    resolve it. Pixmaps always render."""
+    source = QIcon(str(ICON_PATH))
+    icon = QIcon()
+    for size in ICON_SIZES:
+        icon.addPixmap(source.pixmap(size, size))
+    return icon
 
 
 def socket_name() -> str:

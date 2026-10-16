@@ -53,7 +53,7 @@ Type=Application
 Name=MatControl
 Comment=Audio Split, Updates and more in one tray popup
 Exec=$launcher $2
-Icon=matcontrol
+Icon=$icon_dir/matcontrol.svg
 Terminal=false
 Categories=Settings;
 StartupWMClass=matcontrol
@@ -70,6 +70,9 @@ else
 fi
 
 [[ $kwin -eq 1 ]] && "$here/kwin/install.sh"
+
+# make a running Plasma pick up the new icon without a re-login (best effort)
+busctl --user emit /KIconLoader org.kde.KIconLoader iconChanged i 0 2>/dev/null || true
 
 echo "MatControl installed: start it from the app menu or run 'matcontrol'"
 [[ $autostart -eq 1 ]] && echo "It also starts hidden in the tray at login."

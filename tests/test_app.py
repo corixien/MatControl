@@ -32,9 +32,12 @@ def test_second_launch_opens_the_running_popup(qapp, tmp_path):
     server.close()
 
 
-def test_icon_file_is_a_valid_icon(qapp):
-    assert app_module.ICON_PATH.exists()
-    assert not app_module.app_icon().isNull()
+def test_app_icon_is_pixmaps_without_a_theme_name(qapp):
+    icon = app_module.app_icon()
+    assert app_module.ICON_PATH.exists() and not icon.isNull()
+    assert icon.name() == ""  # a name would make the tray send it to the panel instead of the pixmaps
+    assert {s.width() for s in icon.availableSizes()} >= {16, 32, 48}
+    assert not icon.pixmap(48, 48).isNull()
 
 
 @pytest.fixture
@@ -61,7 +64,9 @@ def test_install_creates_launcher_menu_entry_icon_and_autostart(fake_home):
     assert str(ROOT) in text and "-m matcontrol" in text
     menu = home / ".local/share/applications/matcontrol.desktop"
     autostart = home / ".config/autostart/matcontrol.desktop"
-    assert f"Exec={launcher} \n" in menu.read_text() or f"Exec={launcher}" in menu.read_text()
+    assert f"Exec={launcher}" in menu.read_text()
+    icon_file = home / ".local/share/icons/hicolor/scalable/apps/matcontrol.svg"
+    assert f"Icon={icon_file}" in menu.read_text()  # absolute path: works whatever the icon theme
     assert f"Exec={launcher} --minimized" in autostart.read_text()
     assert (home / ".local/share/icons/hicolor/scalable/apps/matcontrol.svg").exists()
     if shutil.which("desktop-file-validate"):
