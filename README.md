@@ -6,10 +6,11 @@ Plugins:
 
 - Audio Split (done): play the system audio on several output devices at once, choose the devices, volume slider per device. Creates one virtual output, loops it back to every chosen device and makes it the default; switching off restores the previous default. Per device a delay in ms (loopback latency) lines up devices with different latency, e.g. wired and Bluetooth.
 
+- Update (done): checks dnf and flatpak for pending updates (icon tinted when there are some), click the icon to run a configurable update command as root (Polkit dialog) with a live log; the icon stays inverted while it runs. Default: `dnf upgrade -y`, `flatpak update -y`, `fwupdmgr update -y`.
+
 Planned:
 
 - Network: restart NetworkManager with one click (for LTE sticks)
-- Update: run a configurable "update everything" command with a live log
 
 Root commands run through `pkexec` (Polkit password dialog). The UI is German and follows the KDE theme.
 

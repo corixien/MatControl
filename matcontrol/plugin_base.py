@@ -47,6 +47,11 @@ class Plugin:
         """True/False colors the tile on/off. None = no on/off state (neutral tile)."""
         return None
 
+    def tile_attention(self, ctx: PluginContext) -> bool:
+        """True tints the idle tile icon with the accent color (something needs the user, e.g. an update).
+        Ignored while tile_active() is True."""
+        return False
+
     def tile_subtitle(self, ctx: PluginContext) -> str:
         """Short status line under the name, e.g. "Update verfügbar" or "Aktiv"."""
         return ""

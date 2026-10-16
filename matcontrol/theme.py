@@ -35,6 +35,8 @@ TEXT = _tint(0.92, 0.30)
 TEXT_DIM = _tint(0.58, 0.20)
 TEXT_ON = QColor(BASE)  # text on an ON surface
 TEXT_ON_DIM = _tint(0.38, 0.25)
+ACCENT = _tint(0.46, 0.55)  # "needs attention" icon disc (e.g. update available)
+ACCENT_HOVER = _tint(0.52, 0.55)
 WASH = QColor(255, 255, 255, 16)  # translucent lift for idle icon discs
 WASH_HOVER = QColor(255, 255, 255, 34)
 

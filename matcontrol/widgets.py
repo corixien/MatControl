@@ -148,6 +148,7 @@ class IconButton(_Hoverable, QAbstractButton):
         self.setFixedSize(diameter, diameter)
         self._init_hover()
         self.tone = Fader(self, 220)
+        self.attention = Fader(self, 260)
         self.bg_off = QColor(255, 255, 255, 0)
         self.bg_off_hover = theme.WASH
         self.bg_on = theme.DISC_ON
@@ -156,11 +157,17 @@ class IconButton(_Hoverable, QAbstractButton):
     def set_tone(self, on: bool) -> None:
         self.tone.to(1.0 if on else 0.0)
 
+    def set_attention(self, on: bool) -> None:
+        self.attention.to(1.0 if on else 0.0)
+
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         tone, hover = self.tone.value, self.hover.value
-        background = mix(mix(self.bg_off, self.bg_off_hover, hover), mix(self.bg_on, self.bg_on_hover, hover), tone)
+        attention = self.attention.value
+        idle = mix(self.bg_off, theme.ACCENT, attention)
+        idle_hover = mix(self.bg_off_hover, theme.ACCENT_HOVER, attention)
+        background = mix(mix(idle, idle_hover, hover), mix(self.bg_on, self.bg_on_hover, hover), tone)
         center = QPointF(self.width() / 2, self.height() / 2)
         scale = 1 - 0.08 * self.press.value
         p.translate(center)
@@ -342,6 +349,7 @@ class Tile(QFrame):
         state = "none" if active is None else ("on" if active else "off")
         self.setProperty("state", state)
         self.icon_button.set_tone(bool(active))
+        self.icon_button.set_attention(self.plugin.tile_attention(self.ctx))
         self.subtitle.setText(self.plugin.tile_subtitle(self.ctx))
 
     def _on_icon_clicked(self) -> None:

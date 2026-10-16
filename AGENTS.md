@@ -28,6 +28,6 @@ MatControl: Python 3 + PySide6 control center (tray popup that slides down under
 
 1. Skeleton, tray, plugin loader (done)
 1b. Audio Split plugin (done): `plugins/audiosplit.py`, backend `audio_backend.py` (pulsectl; null-sink `matcontrol_split` + one loopback per device, loopback latency = per-device delay)
-2. Network plugin (NetworkManager restart via pkexec)
-3. Update plugin (configurable command, live log)
+2. Update plugin (done): `plugins/update.py`, detection in `updates.py` (dnf check-update + flatpak), command runs via `pkexec sh -c` with live log
+3. Network plugin (NetworkManager restart via pkexec)
 4. `install.sh`, `.desktop` entry, autostart

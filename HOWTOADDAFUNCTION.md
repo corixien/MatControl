@@ -8,6 +8,7 @@ Every function of MatControl is one plugin: one Python file in `matcontrol/plugi
 2. Rename the class. Set `id` (unique, lowercase, used as config key), `name` (German tile label), `icon` (freedesktop theme icon name, e.g. `network-wired`, `audio-card`, `system-software-update`), and `order` (tile position, lower first).
 3. Build the detail page in `create_widget(self, ctx)` and return a `QWidget`. Shown when the user clicks beside the tile icon; put all settings and controls here.
 3a. Tile (home page, quick-settings style): override `tile_active(ctx)` (`True`/`False` inverts the tile icon (on) or leaves it dim (off), `None` = neutral tile without state) and `tile_subtitle(ctx)` (short German status, e.g. "Update verfügbar", "Aktiv"). Both run on the UI thread every 5 s, so keep them cheap: read cached state or settings, never run slow commands there.
+3a2. Attention: override `tile_attention(ctx)` to tint the idle tile icon with the accent color when the plugin wants the user (e.g. an update is pending). It is ignored while `tile_active` is `True`.
 3b. On/off: override `toggle(ctx)` to make the tile icon click and the switch in the detail header work. Omit it for plugins without on/off; then the icon click opens the detail page. After changing state outside `toggle`, call `ctx.notify_changed()` so tile and switch refresh immediately.
 4. Keep `PLUGIN = YourPlugin()` at module level. The loader reads exactly this name.
 5. Add a test in `tests/` for any logic that does not need a display (command building, parsing).
