@@ -30,5 +30,4 @@ MatControl: Python 3 + PySide6 control center (tray popup that slides down under
 1b. Audio Split plugin (done): `plugins/audiosplit.py`, backend `audio_backend.py` (pulsectl, combine-sink `matcontrol_split`)
 2. Network plugin (NetworkManager restart via pkexec)
 3. Update plugin (configurable command, live log)
-4. `install.sh`, `.desktop` entry, autostart (was 5)
-5. `install.sh`, `.desktop` entry, autostart
+4. `install.sh`, `.desktop` entry, autostart
