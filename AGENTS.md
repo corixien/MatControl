@@ -6,6 +6,7 @@ MatControl: Python 3 + PySide6 control center (tray popup that slides down under
 
 - Setup: `python3 -m venv --system-site-packages .venv && .venv/bin/pip install -r requirements-dev.txt`
 - Run: `.venv/bin/python -m matcontrol` (`--minimized` = tray only, `--window` = normal window)
+- Install as program: `./install.sh` (`--uninstall`, `--no-autostart`, `--no-kwin`, `--no-deps`): launcher `~/.local/bin/matcontrol`, `.desktop` + autostart entries, icon, KWin script. After code changes the running instance must be restarted; `pkill` it with the pattern `[p]ython -m matcontrol` (a plain pattern also matches the calling shell)
 - KWin placement script: `kwin/install.sh` (`--uninstall`); positions the popup top right under the panel
 - Test: `.venv/bin/python -m pytest` (headless, `QT_QPA_PLATFORM=offscreen` set in `tests/conftest.py`)
 
@@ -30,4 +31,4 @@ MatControl: Python 3 + PySide6 control center (tray popup that slides down under
 1b. Audio Split plugin (done): `plugins/audiosplit.py`, backend `audio_backend.py` (pulsectl; null-sink `matcontrol_split` + one loopback per device, loopback latency = per-device delay)
 2. Update plugin (done): `plugins/update.py`, detection in `updates.py` (dnf check-update + flatpak), command runs via `pkexec sh -c` with live log
 3. Network plugin (NetworkManager restart via pkexec)
-4. `install.sh`, `.desktop` entry, autostart
+4. `install.sh`, `.desktop` entry, autostart (done); single instance via local socket `/tmp/matcontrol`

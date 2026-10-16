@@ -14,7 +14,16 @@ Planned:
 
 Root commands run through `pkexec` (Polkit password dialog). The UI is German and follows the KDE theme.
 
-## Run
+## Install as a program
+
+```bash
+./install.sh              # launcher ~/.local/bin/matcontrol, app-menu entry, icon, autostart, KWin script
+./install.sh --uninstall  # remove everything (config in ~/.config/matcontrol stays)
+```
+
+Options: `--no-autostart`, `--no-kwin`, `--no-deps`. Per user, no root. After installing, start MatControl from the app menu or run `matcontrol`; at login it starts hidden in the tray. A second launch only opens the popup of the running instance. Re-run `install.sh` if you move the repo.
+
+## Run from the repo (development)
 
 ```bash
 python3 -m venv --system-site-packages .venv
