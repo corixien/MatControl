@@ -1,7 +1,6 @@
 """Template plugin. Files starting with "_" are ignored by the loader.
 
 Copy this file to matcontrol/plugins/<name>.py and edit. See HOWTOADDAFUNCTION.md.
-To preview it in the app: MATCONTROL_LOAD_EXAMPLE=1 python -m matcontrol
 """
 
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget

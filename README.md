@@ -4,7 +4,7 @@ Small control center for a Linux (Fedora/KDE) desktop. Tray popup that slides do
 
 Plugins:
 
-- Audio Split (done): play the system audio on several output devices at once, choose the devices, volume slider per device. Combines the chosen outputs into one virtual device (`module-combine-sink`) and makes it the default; switching off restores the previous default.
+- Audio Split (done): play the system audio on several output devices at once, choose the devices, volume slider per device. Creates one virtual output, loops it back to every chosen device and makes it the default; switching off restores the previous default. Per device a delay in ms (loopback latency) lines up devices with different latency, e.g. wired and Bluetooth.
 
 Planned:
 

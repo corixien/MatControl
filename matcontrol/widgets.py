@@ -191,7 +191,8 @@ class IconButton(_Hoverable, QAbstractButton):
 
 
 class Slider(_Hoverable, QAbstractSlider):
-    """Horizontal 0..100 slider. The knob glides to programmatic changes; `user_changed` fires only for drags/clicks."""
+    """Horizontal slider (default 0..100, setRange/setSingleStep respected). The knob glides to
+    programmatic changes; `user_changed` fires only for drags/clicks."""
 
     user_changed = Signal(int)
     _PAD = 9  # knob radius, so the knob stays inside the widget
@@ -207,7 +208,10 @@ class Slider(_Hoverable, QAbstractSlider):
 
     def _value_at(self, x: float) -> int:
         span = max(1, self.width() - 2 * self._PAD)
-        return round(100 * max(0.0, min(1.0, (x - self._PAD) / span)))
+        fraction = max(0.0, min(1.0, (x - self._PAD) / span))
+        step = max(1, self.singleStep())
+        raw = self.minimum() + fraction * (self.maximum() - self.minimum())
+        return max(self.minimum(), min(self.maximum(), round(raw / step) * step))
 
     def _apply(self, event: QMouseEvent) -> None:
         value = self._value_at(event.position().x())
@@ -241,7 +245,8 @@ class Slider(_Hoverable, QAbstractSlider):
         w, h = self.width(), self.height()
         track_h = 6
         top = (h - track_h) / 2
-        x = self._PAD + (w - 2 * self._PAD) * self.shown.value / 100
+        span = max(1, self.maximum() - self.minimum())
+        x = self._PAD + (w - 2 * self._PAD) * (self.shown.value - self.minimum()) / span
         p.setBrush(theme.TRACK_OFF)
         p.drawRoundedRect(QRectF(self._PAD, top, w - 2 * self._PAD, track_h), 3, 3)
         p.setBrush(theme.ON)

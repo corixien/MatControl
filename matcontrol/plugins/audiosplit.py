@@ -1,7 +1,8 @@
 """Audio Split: play the system audio on several output devices at once.
 
-Tile: on/off and status. Detail page: choose the devices (switch per device) and set the
-volume of each device (slider per device). Needs PipeWire or PulseAudio.
+Tile: on/off and status. Detail page: choose the devices (switch per device), set the volume
+of each device (slider) and delay a device in ms (second slider) so devices with different
+latency, e.g. wired vs. Bluetooth, play in sync. Needs PipeWire or PulseAudio.
 """
 
 import time
@@ -20,6 +21,8 @@ MIN_DEVICES = 2
 STALE_S = 2.0  # tile state older than this is refreshed in the background
 POLL_MS = 1500  # detail page: pick up external volume/device changes
 VOLUME_THROTTLE_MS = 50
+DELAY_SETTLE_MS = 300  # apply a delay change this long after the last slider move (it glitches the device)
+DELAY_STEP_MS = 5
 TOUCH_HOLD_S = 2.0  # after a user volume change, ignore server values this long (they lag behind)
 
 
@@ -46,6 +49,9 @@ class AudioSplitPlugin(Plugin):
     def valid_selected(self, ctx: PluginContext) -> list[str]:
         present = {d.name for d in self.snapshot.devices} if self.snapshot else set()
         return [name for name in self.selected(ctx) if name in present]
+
+    def delay_of(self, ctx: PluginContext, name: str) -> int:
+        return int(ctx.settings.get("delays", {}).get(name, 0))
 
     def refresh(self, ctx: PluginContext) -> None:
         """Fetch the audio state in the background; notifies when it changed."""
@@ -109,6 +115,22 @@ class AudioSplitPlugin(Plugin):
             else:
                 self._reapply(ctx)
 
+    def set_delay(self, ctx: PluginContext, name: str, delay_ms: int) -> None:
+        """Store the delay of one device and apply it live when the split is on."""
+        ctx.settings.setdefault("delays", {})[name] = delay_ms
+        ctx.save()
+        if not (self.snapshot and self.snapshot.active):
+            return
+        if self._busy:
+            self._dirty = True  # the re-apply after the running change uses the stored delays
+        elif name in self.valid_selected(ctx):
+            run_in_thread(audio.set_delay, lambda r, e: self._delay_applied(ctx, e), name, delay_ms)
+
+    def _delay_applied(self, ctx: PluginContext, error: Exception | None) -> None:
+        if error is not None:
+            self.error = str(error)
+            ctx.notify_changed()
+
     def _reapply(self, ctx: PluginContext) -> None:
         """Selection changed while the split is on: rebuild it, or switch off when nothing is left."""
         self._apply(ctx, target=bool(self.valid_selected(ctx)))
@@ -118,7 +140,8 @@ class AudioSplitPlugin(Plugin):
         self._target = target
         ctx.notify_changed()
         if target:
-            run_in_thread(audio.enable, lambda r, e: self._applied(ctx, r, e), self.valid_selected(ctx))
+            delays = {name: self.delay_of(ctx, name) for name in self.valid_selected(ctx)}
+            run_in_thread(audio.enable, lambda r, e: self._applied(ctx, r, e), delays)
         else:
             run_in_thread(audio.disable, lambda r, e: self._applied(ctx, r, e), ctx.settings.get("previous_default"))
 
@@ -145,10 +168,10 @@ class AudioSplitPlugin(Plugin):
 class DeviceRow(QFrame):
     """One output device: name + select switch on top, volume slider below."""
 
-    def __init__(self, device: audio.Device, selected: bool):
+    def __init__(self, device: audio.Device, selected: bool, delay_ms: int):
         super().__init__()
         self.name = device.name
-        self.setMinimumHeight(84)
+        self.setMinimumHeight(128)
 
         title = QLabel(device.description)
         title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
@@ -168,17 +191,39 @@ class DeviceRow(QFrame):
         self.slider.valueChanged.connect(lambda v: self.percent.setText(f"{v}%"))
         self.set_volume(device.volume)
 
+        self.delay_slider = Slider()
+        self.delay_slider.setRange(0, audio.MAX_DELAY_MS)
+        self.delay_slider.setSingleStep(DELAY_STEP_MS)
+        self.delay_value = QLabel()
+        self.delay_value.setFixedWidth(56)
+        self.delay_value.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.delay_value.setPalette(palette)
+        self.delay_slider.valueChanged.connect(lambda v: self.delay_value.setText(f"{v} ms"))
+        self.delay_slider.setValue(delay_ms)
+        delay_title = QLabel("Verzögerung")
+        delay_title.setPalette(palette)
+        delay_title.setFixedWidth(80)
+        volume_title = QLabel("Lautstärke")
+        volume_title.setPalette(palette)
+        volume_title.setFixedWidth(80)
+
         top = QHBoxLayout()
         top.addWidget(title, 1)
         top.addWidget(self.switch)
         bottom = QHBoxLayout()
+        bottom.addWidget(volume_title)
         bottom.addWidget(self.slider, 1)
         bottom.addWidget(self.percent)
+        delay = QHBoxLayout()
+        delay.addWidget(delay_title)
+        delay.addWidget(self.delay_slider, 1)
+        delay.addWidget(self.delay_value)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(14, 10, 14, 10)
         layout.setSpacing(6)
         layout.addLayout(top)
         layout.addLayout(bottom)
+        layout.addLayout(delay)
 
     def set_volume(self, volume: float) -> None:
         self.slider.setValue(round(max(0.0, min(1.0, volume)) * 100))
@@ -191,7 +236,7 @@ class DeviceRow(QFrame):
         p.drawRoundedRect(QRectF(self.rect()), 14, 14)
 
     def sizeHint(self) -> QSize:
-        return QSize(300, 84)
+        return QSize(300, 128)
 
 
 class AudioSplitPage(QWidget):
@@ -202,9 +247,13 @@ class AudioSplitPage(QWidget):
         self.rows: dict[str, DeviceRow] = {}
         self._pending: dict[str, float] = {}
         self._touched: dict[str, float] = {}
+        self._delay_pending: dict[str, int] = {}
         self._fetching = False
 
-        intro = QLabel("Wähle die Ausgabegeräte. Das System-Audio läuft dann auf allen gleichzeitig.")
+        intro = QLabel(
+            "Wähle die Ausgabegeräte. Das System-Audio läuft dann auf allen gleichzeitig. "
+            "Mit der Verzögerung gleichst du ein schnelleres Gerät an ein langsameres an (z. B. Kabel und Bluetooth)."
+        )
         intro.setWordWrap(True)
         self.hint = QLabel()
         self.hint.setWordWrap(True)
@@ -237,6 +286,10 @@ class AudioSplitPage(QWidget):
         self.volume_timer.setSingleShot(True)
         self.volume_timer.setInterval(VOLUME_THROTTLE_MS)
         self.volume_timer.timeout.connect(self._flush_volumes)
+        self.delay_timer = QTimer(self)
+        self.delay_timer.setSingleShot(True)
+        self.delay_timer.setInterval(DELAY_SETTLE_MS)
+        self.delay_timer.timeout.connect(self._flush_delays)
         self.poll_timer = QTimer(self)
         self.poll_timer.setInterval(POLL_MS)
         self.poll_timer.timeout.connect(self._poll)
@@ -284,9 +337,10 @@ class AudioSplitPage(QWidget):
         self.rows.clear()
         selected = set(self.plugin.selected(self.ctx))
         for device in devices:
-            row = DeviceRow(device, device.name in selected)
+            row = DeviceRow(device, device.name in selected, self.plugin.delay_of(self.ctx, device.name))
             row.switch.clicked.connect(lambda checked, name=device.name: self.plugin.set_selected(self.ctx, name, checked))
             row.slider.user_changed.connect(lambda value, name=device.name: self._volume_changed(name, value))
+            row.delay_slider.user_changed.connect(lambda value, name=device.name: self._delay_changed(name, value))
             self.list_layout.addWidget(row)
             self.rows[device.name] = row
 
@@ -308,6 +362,15 @@ class AudioSplitPage(QWidget):
         self._touched[name] = time.monotonic()
         if not self.volume_timer.isActive():
             self.volume_timer.start()
+
+    def _delay_changed(self, name: str, value: int) -> None:
+        self._delay_pending[name] = value
+        self.delay_timer.start()  # restarts: applies once the slider stopped moving
+
+    def _flush_delays(self) -> None:
+        pending, self._delay_pending = self._delay_pending, {}
+        for name, value in pending.items():
+            self.plugin.set_delay(self.ctx, name, value)
 
     def _flush_volumes(self) -> None:
         pending, self._pending = self._pending, {}

@@ -66,24 +66,15 @@ def test_example_template_is_a_valid_plugin():
     assert module.PLUGIN.toggleable
 
 
-def test_discover_skips_underscore_files_and_never_raises(monkeypatch):
-    monkeypatch.delenv("MATCONTROL_LOAD_EXAMPLE", raising=False)
+def test_discover_skips_underscore_files_and_never_raises():
     plugins, errors = discover()
     assert all(p.id != "example" for p in plugins)
-    assert errors == []
-
-
-def test_discover_loads_example_on_request(monkeypatch):
-    monkeypatch.setenv("MATCONTROL_LOAD_EXAMPLE", "1")
-    plugins, errors = discover()
-    assert [p.id for p in plugins if p.id == "example"] == ["example"]
     assert errors == []
 
 
 def test_discover_reports_broken_plugin(tmp_path, monkeypatch):
     import matcontrol.plugins as pkg
 
-    monkeypatch.delenv("MATCONTROL_LOAD_EXAMPLE", raising=False)
     (tmp_path / "broken.py").write_text("raise RuntimeError('boom')\n", encoding="utf-8")
     monkeypatch.setattr(pkg, "__path__", [str(tmp_path)])
     plugins, errors = discover()

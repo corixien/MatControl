@@ -1,6 +1,5 @@
 import importlib
 import logging
-import os
 import pkgutil
 
 from . import plugins as plugins_pkg
@@ -12,14 +11,12 @@ log = logging.getLogger(__name__)
 def discover() -> tuple[list[Plugin], list[str]]:
     """Import every non-underscore module in matcontrol/plugins and collect its PLUGIN.
 
-    MATCONTROL_LOAD_EXAMPLE=1 also loads the _example template, for trying out the UI.
     A broken plugin never crashes the app; it is reported in the returned error list.
     """
     found: dict[str, Plugin] = {}
     errors: list[str] = []
-    include_example = os.environ.get("MATCONTROL_LOAD_EXAMPLE") == "1"
     for info in pkgutil.iter_modules(plugins_pkg.__path__):
-        if info.name.startswith("_") and not (include_example and info.name == "_example"):
+        if info.name.startswith("_"):
             continue
         try:
             module = importlib.import_module(f"{plugins_pkg.__name__}.{info.name}")

@@ -11,7 +11,7 @@ Every function of MatControl is one plugin: one Python file in `matcontrol/plugi
 3b. On/off: override `toggle(ctx)` to make the tile icon click and the switch in the detail header work. Omit it for plugins without on/off; then the icon click opens the detail page. After changing state outside `toggle`, call `ctx.notify_changed()` so tile and switch refresh immediately.
 4. Keep `PLUGIN = YourPlugin()` at module level. The loader reads exactly this name.
 5. Add a test in `tests/` for any logic that does not need a display (command building, parsing).
-6. Run `.venv/bin/python -m pytest`, then start the app and check the new tile. Preview the template with `MATCONTROL_LOAD_EXAMPLE=1 .venv/bin/python -m matcontrol`.
+6. Run `.venv/bin/python -m pytest`, then start the app and check the new tile.
 
 ## Rules
 

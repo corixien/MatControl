@@ -29,6 +29,7 @@ class FakePulse:
         self.sinks = [self._sink(n, f"Device {n}") for n in (A, B, C)]
         self.modules = []
         self.volumes = {}
+        self.next_index = 0
 
     @staticmethod
     def _sink(name, description, volume=1.0):
@@ -53,12 +54,17 @@ class FakePulse:
         return list(self.modules)
 
     def module_load(self, name, args):
-        self.modules.append(SimpleNamespace(index=len(self.modules) + 1, name=name, argument=args))
-        self.sinks.append(self._sink(audio.SINK_NAME, audio.DESCRIPTION))
+        self.next_index += 1
+        self.modules.append(SimpleNamespace(index=self.next_index, name=name, argument=args))
+        if name in (audio.NULL_MODULE, audio.LEGACY_COMBINE_MODULE):
+            self.sinks.append(self._sink(audio.SINK_NAME, audio.DESCRIPTION))
+        return self.next_index
 
     def module_unload(self, index):
+        gone = next(m for m in self.modules if m.index == index)
         self.modules = [m for m in self.modules if m.index != index]
-        self.sinks = [s for s in self.sinks if s.name != audio.SINK_NAME]
+        if gone.name in (audio.NULL_MODULE, audio.LEGACY_COMBINE_MODULE):
+            self.sinks = [s for s in self.sinks if s.name != audio.SINK_NAME]
 
     def sink_default_set(self, name):
         self.default = name
@@ -77,26 +83,65 @@ def pulse(monkeypatch):
     return fake
 
 
-def test_snapshot_hides_the_combined_output(pulse):
-    audio.enable([A, B])
+def loopbacks(pulse):
+    return [m for m in pulse.modules if m.name == audio.LOOPBACK_MODULE]
+
+
+def latency_of(module):
+    return int(module.argument.split("latency_msec=")[1].split()[0])
+
+
+def test_snapshot_hides_the_virtual_output(pulse):
+    audio.enable({A: 0, B: 0})
     snap = audio.snapshot()
     assert snap.active and [d.name for d in snap.devices] == [A, B, C]
 
 
-def test_enable_combines_selected_and_returns_previous_default(pulse):
-    previous = audio.enable([B, C])
+def test_enable_builds_null_sink_and_a_loopback_per_device(pulse):
+    previous = audio.enable({B: 0, C: 120})
     assert previous == A and pulse.default == audio.SINK_NAME
-    assert f"slaves={B},{C}" in pulse.modules[0].argument
+    assert [m.name for m in pulse.modules][0] == audio.NULL_MODULE
+    by_device = {m.argument.split("sink=")[1].split()[0]: latency_of(m) for m in loopbacks(pulse)}
+    assert by_device == {B: audio.BASE_LATENCY_MS, C: audio.BASE_LATENCY_MS + 120}
+    assert all(f"source={audio.SINK_NAME}.monitor" in m.argument for m in loopbacks(pulse))
+
+
+def test_delay_is_clamped(pulse):
+    audio.enable({A: 99999, B: -5})
+    assert sorted(latency_of(m) for m in loopbacks(pulse)) == [
+        audio.BASE_LATENCY_MS,
+        audio.BASE_LATENCY_MS + audio.MAX_DELAY_MS,
+    ]
 
 
 def test_enable_twice_rebuilds_and_keeps_no_previous(pulse):
-    audio.enable([A, B])
-    assert audio.enable([A, C]) is None
-    assert len(pulse.modules) == 1 and f"slaves={A},{C}" in pulse.modules[0].argument
+    audio.enable({A: 0, B: 0})
+    assert audio.enable({A: 0, C: 0}) is None
+    assert len(loopbacks(pulse)) == 2 and sum(m.name == audio.NULL_MODULE for m in pulse.modules) == 1
 
 
-def test_disable_restores_default_and_removes_module(pulse):
-    previous = audio.enable([A, B])
+def test_enable_replaces_a_legacy_combine_sink(pulse):
+    pulse.module_load(audio.LEGACY_COMBINE_MODULE, f"sink_name={audio.SINK_NAME} slaves={A},{B}")
+    audio.enable({A: 0, B: 0})
+    assert not [m for m in pulse.modules if m.name == audio.LEGACY_COMBINE_MODULE]
+
+
+def test_set_delay_reloads_only_that_device(pulse):
+    audio.enable({A: 0, B: 0})
+    untouched = next(m for m in loopbacks(pulse) if f"sink={A} " in m.argument)
+    audio.set_delay(B, 200)
+    by_device = {m.argument.split("sink=")[1].split()[0]: latency_of(m) for m in loopbacks(pulse)}
+    assert by_device == {A: audio.BASE_LATENCY_MS, B: audio.BASE_LATENCY_MS + 200}
+    assert untouched in pulse.modules
+
+
+def test_set_delay_does_nothing_while_split_is_off(pulse):
+    audio.set_delay(A, 100)
+    assert not pulse.modules
+
+
+def test_disable_restores_default_and_removes_everything(pulse):
+    previous = audio.enable({A: 0, B: 50})
     audio.disable(previous)
     assert pulse.default == A and not pulse.modules and not audio.snapshot().active
 
@@ -109,7 +154,7 @@ def test_set_volume_is_clamped(pulse):
 
 def test_enable_without_devices_is_an_error(pulse):
     with pytest.raises(audio.AudioError):
-        audio.enable([])
+        audio.enable({})
 
 
 def test_unreachable_server_becomes_audio_error(monkeypatch):
@@ -163,7 +208,7 @@ def test_changing_selection_while_active_rebuilds(qapp, pulse, tmp_path):
     wait(300)
     plugin.set_selected(ctx, C, True)
     wait(300)
-    assert f"slaves={A},{B},{C}" in pulse.modules[0].argument
+    assert len(loopbacks(pulse)) == 3
     plugin.set_selected(ctx, A, False)
     plugin.set_selected(ctx, B, False)
     plugin.set_selected(ctx, C, False)
@@ -192,3 +237,53 @@ def test_slider_click_sets_value_and_emits(qapp):
     assert 45 <= slider.value() <= 55 and seen
     slider.setValue(20)  # programmatic: no user_changed
     assert len(seen) == 1
+
+
+def test_plugin_delay_is_stored_and_used_when_switching_on(qapp, pulse, tmp_path):
+    plugin, ctx = make_plugin(tmp_path)
+    plugin.tile_active(ctx)
+    wait(150)
+    plugin.set_selected(ctx, A, True)
+    plugin.set_selected(ctx, B, True)
+    plugin.set_delay(ctx, B, 140)
+    plugin.toggle(ctx)
+    wait(300)
+    by_device = {m.argument.split("sink=")[1].split()[0]: latency_of(m) for m in loopbacks(pulse)}
+    assert by_device == {A: audio.BASE_LATENCY_MS, B: audio.BASE_LATENCY_MS + 140}
+
+
+def test_plugin_delay_change_applies_live(qapp, pulse, tmp_path):
+    plugin, ctx = make_plugin(tmp_path)
+    plugin.tile_active(ctx)
+    wait(150)
+    plugin.set_selected(ctx, A, True)
+    plugin.set_selected(ctx, B, True)
+    plugin.toggle(ctx)
+    wait(300)
+    plugin.set_delay(ctx, A, 80)
+    wait(300)
+    by_device = {m.argument.split("sink=")[1].split()[0]: latency_of(m) for m in loopbacks(pulse)}
+    assert by_device[A] == audio.BASE_LATENCY_MS + 80
+    assert ctx.settings["delays"][A] == 80
+
+
+def test_delay_slider_applies_after_it_settles(qapp, pulse, tmp_path):
+    plugin, ctx = make_plugin(tmp_path)
+    page = plugin.create_widget(ctx)
+    page.show()
+    wait(200)
+    page.rows[A].delay_slider.user_changed.emit(30)
+    page.rows[A].delay_slider.user_changed.emit(45)
+    assert "delays" not in ctx.settings  # debounced
+    wait(500)
+    assert ctx.settings["delays"][A] == 45
+
+
+def test_slider_respects_range_and_step(qapp):
+    slider = Slider()
+    slider.setRange(0, 600)
+    slider.setSingleStep(5)
+    slider.resize(209, 26)
+    slider.show()
+    QTest.mouseClick(slider, Qt.MouseButton.LeftButton, pos=QPoint(104, 13))
+    assert slider.value() % 5 == 0 and 270 <= slider.value() <= 330
