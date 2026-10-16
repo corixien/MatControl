@@ -183,13 +183,14 @@ class DeviceRow(QFrame):
         self.switch.setChecked(selected)
         self.slider = Slider()
         self.percent = QLabel()
-        self.percent.setFixedWidth(40)
+        self.percent.setFixedWidth(56)
         self.percent.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         palette = self.percent.palette()
         palette.setColor(self.percent.foregroundRole(), theme.TEXT_DIM)
         self.percent.setPalette(palette)
         self.slider.valueChanged.connect(lambda v: self.percent.setText(f"{v}%"))
         self.set_volume(device.volume)
+        self.percent.setText(f"{self.slider.value()}%")
 
         self.delay_slider = Slider()
         self.delay_slider.setRange(0, audio.MAX_DELAY_MS)
@@ -200,6 +201,7 @@ class DeviceRow(QFrame):
         self.delay_value.setPalette(palette)
         self.delay_slider.valueChanged.connect(lambda v: self.delay_value.setText(f"{v} ms"))
         self.delay_slider.setValue(delay_ms)
+        self.delay_value.setText(f"{delay_ms} ms")
         delay_title = QLabel("Verzögerung")
         delay_title.setPalette(palette)
         delay_title.setFixedWidth(80)
@@ -250,21 +252,15 @@ class AudioSplitPage(QWidget):
         self._delay_pending: dict[str, int] = {}
         self._fetching = False
 
-        intro = QLabel(
-            "Wähle die Ausgabegeräte. Das System-Audio läuft dann auf allen gleichzeitig. "
-            "Mit der Verzögerung gleichst du ein schnelleres Gerät an ein langsameres an (z. B. Kabel und Bluetooth)."
-        )
-        intro.setWordWrap(True)
         self.hint = QLabel()
         self.hint.setWordWrap(True)
-        for label in (intro, self.hint):
-            palette = label.palette()
-            palette.setColor(label.foregroundRole(), theme.TEXT_DIM)
-            label.setPalette(palette)
+        palette = self.hint.palette()
+        palette.setColor(self.hint.foregroundRole(), theme.TEXT_DIM)
+        self.hint.setPalette(palette)
 
         self.list_layout = QVBoxLayout()
         self.list_layout.setSpacing(8)
-        self.list_layout.setContentsMargins(0, 0, 6, 0)
+        self.list_layout.setContentsMargins(0, 0, 0, 0)
         container = QWidget()
         container_layout = QVBoxLayout(container)
         container_layout.setContentsMargins(0, 0, 0, 0)
@@ -273,12 +269,12 @@ class AudioSplitPage(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)  # wheel scrolling only
         scroll.setWidget(container)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
-        layout.addWidget(intro)
         layout.addWidget(self.hint)
         layout.addWidget(scroll, 1)
 

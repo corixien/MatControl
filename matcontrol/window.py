@@ -145,6 +145,7 @@ class MainWindow(QMainWindow):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)  # wheel scrolling only
         scroll.setWidget(content)
         content.setAutoFillBackground(False)
         scroll.viewport().setAutoFillBackground(False)

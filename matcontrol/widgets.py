@@ -300,11 +300,12 @@ class Tile(QFrame):
         self.setMinimumHeight(74)
         self.hover = Fader(self, 160)
         self.press = Fader(self, 100)
-        self.on = Fader(self, 220, on_change=self._apply_text_colors)
 
         self.icon_button = IconButton(plugin.icon, 22, 44)
         self.icon_button.bg_off = theme.WASH
         self.icon_button.bg_off_hover = theme.WASH_HOVER
+        self.icon_button.bg_on = theme.ON  # only the icon disc inverts, the tile itself stays put
+        self.icon_button.bg_on_hover = theme.ON_HOVER
         self.icon_button.clicked.connect(self._on_icon_clicked)
 
         self.title = QLabel(plugin.name)
@@ -340,18 +341,8 @@ class Tile(QFrame):
         active = self.plugin.tile_active(self.ctx)
         state = "none" if active is None else ("on" if active else "off")
         self.setProperty("state", state)
-        self.on.to(1.0 if active else 0.0)
         self.icon_button.set_tone(bool(active))
         self.subtitle.setText(self.plugin.tile_subtitle(self.ctx))
-
-    def _apply_text_colors(self) -> None:
-        for label, off, on in (
-            (self.title, theme.TEXT, theme.TEXT_ON),
-            (self.subtitle, theme.TEXT_DIM, theme.TEXT_ON_DIM),
-        ):
-            palette = label.palette()
-            palette.setColor(QPalette.ColorRole.WindowText, mix(off, on, self.on.value))
-            label.setPalette(palette)
 
     def _on_icon_clicked(self) -> None:
         if self.plugin.toggleable:
@@ -362,10 +353,8 @@ class Tile(QFrame):
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        off = mix(theme.SURFACE, theme.SURFACE_HOVER, self.hover.value)
-        on = mix(theme.ON, theme.ON_HOVER, self.hover.value * 0.6)
-        color = mix(off, on, self.on.value)
-        color = mix(color, theme.BG, self.press.value * 0.18)
+        color = mix(theme.SURFACE, theme.SURFACE_HOVER, self.hover.value)
+        color = mix(color, theme.SURFACE_PRESS, self.press.value)
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(color)
         p.drawRoundedRect(QRectF(self.rect()), 16, 16)
