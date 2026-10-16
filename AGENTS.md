@@ -18,7 +18,8 @@ MatControl: Python 3 + PySide6 control center (tray popup that slides down under
 ## Conventions
 
 - Root actions via `pkexec`, never `sudo`, never stored passwords.
-- External commands via `QProcess`, UI thread never blocks.
+- External commands via `QProcess`; other blocking work (pulse, sockets) via `tasks.run_in_thread`. UI thread never blocks.
+- Tests that wait on worker threads use `tests/conftest.py:wait`, not `QTest.qWait` (it starves threads).
 - Everything animates (Fader); colors only from `theme.py`; flat tones, no gradients.
 - Settings only through `ctx.settings` / `ctx.save()`.
 - No scope creep: no linter, no packaging, no new framework unless asked.
@@ -26,7 +27,8 @@ MatControl: Python 3 + PySide6 control center (tray popup that slides down under
 ## Roadmap
 
 1. Skeleton, tray, plugin loader (done)
+1b. Audio Split plugin (done): `plugins/audiosplit.py`, backend `audio_backend.py` (pulsectl, combine-sink `matcontrol_split`)
 2. Network plugin (NetworkManager restart via pkexec)
 3. Update plugin (configurable command, live log)
-4. Audio plugin (combine sinks, remember, per-device volume; needs `pulsectl`)
+4. `install.sh`, `.desktop` entry, autostart (was 5)
 5. `install.sh`, `.desktop` entry, autostart

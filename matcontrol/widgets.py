@@ -23,6 +23,7 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QColor, QIcon, QMouseEvent, QPainter, QPalette, QPixmap
 from PySide6.QtWidgets import (
     QAbstractButton,
+    QAbstractSlider,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -187,6 +188,67 @@ class IconButton(_Hoverable, QAbstractButton):
         q.fillRect(tinted.rect(), color)
         q.end()
         return tinted
+
+
+class Slider(_Hoverable, QAbstractSlider):
+    """Horizontal 0..100 slider. The knob glides to programmatic changes; `user_changed` fires only for drags/clicks."""
+
+    user_changed = Signal(int)
+    _PAD = 9  # knob radius, so the knob stays inside the widget
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setRange(0, 100)
+        self.setFixedHeight(26)
+        self._init_hover()
+        self._dragging = False
+        self.shown = Fader(self, 150)
+        self.valueChanged.connect(lambda v: self.shown.to(float(v), instant=self._dragging))
+
+    def _value_at(self, x: float) -> int:
+        span = max(1, self.width() - 2 * self._PAD)
+        return round(100 * max(0.0, min(1.0, (x - self._PAD) / span)))
+
+    def _apply(self, event: QMouseEvent) -> None:
+        value = self._value_at(event.position().x())
+        if value != self.value():
+            self.setValue(value)
+            self.user_changed.emit(value)
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = True
+            self.setSliderDown(True)
+            self.press.to(1)
+            self._apply(event)
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if self._dragging:
+            self._apply(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = False
+            self.setSliderDown(False)
+            self.press.to(0)
+
+    def paintEvent(self, _event) -> None:
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setPen(Qt.PenStyle.NoPen)
+        if not self.isEnabled():
+            p.setOpacity(0.4)
+        w, h = self.width(), self.height()
+        track_h = 6
+        top = (h - track_h) / 2
+        x = self._PAD + (w - 2 * self._PAD) * self.shown.value / 100
+        p.setBrush(theme.TRACK_OFF)
+        p.drawRoundedRect(QRectF(self._PAD, top, w - 2 * self._PAD, track_h), 3, 3)
+        p.setBrush(theme.ON)
+        p.drawRoundedRect(QRectF(self._PAD, top, x - self._PAD, track_h), 3, 3)
+        radius = 7 + 2 * self.hover.value + 1 * self.press.value
+        p.setBrush(mix(theme.ON, theme.ON_HOVER, self.hover.value))
+        p.drawEllipse(QPointF(x, h / 2), radius, radius)
 
 
 class Button(_Hoverable, QPushButton):

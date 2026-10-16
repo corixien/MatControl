@@ -2,9 +2,12 @@
 
 Small control center for a Linux (Fedora/KDE) desktop. Tray popup that slides down from the top panel: a home page of tiles, one per function. Click a tile icon to switch it on/off, click beside it for the details and settings (like Samsung quick settings).
 
-Planned plugins:
+Plugins:
 
-- Audio: pick output devices, combine them into one sink, remember the selection, per-device volume
+- Audio Split (done): play the system audio on several output devices at once, choose the devices, volume slider per device. Combines the chosen outputs into one virtual device (`module-combine-sink`) and makes it the default; switching off restores the previous default.
+
+Planned:
+
 - Network: restart NetworkManager with one click (for LTE sticks)
 - Update: run a configurable "update everything" command with a live log
 

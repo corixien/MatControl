@@ -19,7 +19,7 @@ Every function of MatControl is one plugin: one Python file in `matcontrol/plugi
 - Look: dark blue-slate, flat, no gradients. All colors derive from one base color in `matcontrol/theme.py`; use `theme.*` constants, never hard-code colors in a plugin.
 - Every state change animates. Use `Button` and `Switch` from `matcontrol/widgets.py` instead of `QPushButton`/`QCheckBox`. For your own animated widget use `Fader` (an animated 0..1 value that repaints the widget); never snap between states.
 - Persistent settings: `ctx.settings` (a dict), then `ctx.save()`. Never write config files yourself.
-- Long-running or external commands: use `QProcess`, never block the UI thread with `subprocess.run`.
+- Long-running or external commands: use `QProcess`; other blocking calls (audio server, sockets) go through `tasks.run_in_thread(fn, on_done, *args)`. Never block the UI thread. `plugins/audiosplit.py` is a complete real example (cached state for the tile, background refresh, optimistic toggle).
 - Commands that need root: run them through `pkexec` (Polkit dialog). Never hard-code `sudo`, never store passwords.
 - A plugin that raises on import is listed as an error on the home page and does not crash the app.
 - No secrets in the repo (it is public).
