@@ -11,7 +11,7 @@ MatControl: Python 3 + PySide6 control center (tray popup that slides down under
 
 ## Layout
 
-- `matcontrol/app.py` entry, tray. `window.py` popup window, slide animation, home grid + detail pages. `widgets.py` animated Tile, Switch, Button, IconButton, DetailPage, PageStack, Fader. `theme.py` colors (#0f0f0f background) + stylesheet. `config.py` JSON config. `plugin_base.py` API. `plugin_loader.py` discovery.
+- `matcontrol/app.py` entry, tray. `window.py` popup window, slide animation, home grid + detail pages. `widgets.py` animated Tile, Switch, Button, IconButton, DetailPage, PageStack, Fader. `theme.py` colors (base color #1a242f, all other colors derived from its hue) + stylesheet. `config.py` JSON config. `plugin_base.py` API. `plugin_loader.py` discovery.
 - `matcontrol/plugins/*.py` one plugin each; `_`-prefixed files are ignored (`_example.py` is the template).
 - Adding a function: follow `HOWTOADDAFUNCTION.md`. Do not edit core files for that.
 

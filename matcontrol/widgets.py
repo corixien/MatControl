@@ -128,7 +128,7 @@ class Switch(_Hoverable, QAbstractButton):
         t = self.progress.value
         w, h = self.width(), self.height()
         track = mix(theme.TRACK_OFF, theme.ON, t)
-        track = mix(track, QColor("#ffffff"), self.hover.value * 0.08)
+        track = mix(track, theme.ON_HOVER, self.hover.value * 0.10)
         p.setBrush(track)
         p.drawRoundedRect(QRectF(0, 0, w, h), h / 2, h / 2)
         diameter = h - 8 + 4 * self.press.value
@@ -148,9 +148,9 @@ class IconButton(_Hoverable, QAbstractButton):
         self._init_hover()
         self.tone = Fader(self, 220)
         self.bg_off = QColor(255, 255, 255, 0)
-        self.bg_off_hover = QColor(255, 255, 255, 24)
-        self.bg_on = QColor("#cdcdcd")
-        self.bg_on_hover = QColor("#bcbcbc")
+        self.bg_off_hover = theme.WASH
+        self.bg_on = theme.DISC_ON
+        self.bg_on_hover = theme.DISC_ON_HOVER
 
     def set_tone(self, on: bool) -> None:
         self.tone.to(1.0 if on else 0.0)
@@ -207,7 +207,7 @@ class Button(_Hoverable, QPushButton):
             p.setOpacity(0.4)
         if self.primary:
             color = mix(theme.ON, theme.ON_HOVER, self.hover.value)
-            color = mix(color, QColor("#bdbdbd"), self.press.value)
+            color = mix(color, theme.ON_PRESS, self.press.value)
             text = theme.TEXT_ON
         else:
             color = mix(theme.SURFACE, theme.SURFACE_HOVER, self.hover.value)
@@ -236,8 +236,8 @@ class Tile(QFrame):
         self.on = Fader(self, 220, on_change=self._apply_text_colors)
 
         self.icon_button = IconButton(plugin.icon, 22, 44)
-        self.icon_button.bg_off = QColor(255, 255, 255, 16)
-        self.icon_button.bg_off_hover = QColor(255, 255, 255, 34)
+        self.icon_button.bg_off = theme.WASH
+        self.icon_button.bg_off_hover = theme.WASH_HOVER
         self.icon_button.clicked.connect(self._on_icon_clicked)
 
         self.title = QLabel(plugin.name)
@@ -298,7 +298,7 @@ class Tile(QFrame):
         off = mix(theme.SURFACE, theme.SURFACE_HOVER, self.hover.value)
         on = mix(theme.ON, theme.ON_HOVER, self.hover.value * 0.6)
         color = mix(off, on, self.on.value)
-        color = mix(color, QColor(0, 0, 0), self.press.value * 0.12)
+        color = mix(color, theme.BG, self.press.value * 0.18)
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(color)
         p.drawRoundedRect(QRectF(self.rect()), 16, 16)
