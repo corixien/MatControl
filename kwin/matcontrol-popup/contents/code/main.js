@@ -1,7 +1,7 @@
 // Places the MatControl popup just under the top panel (where the tray icon lives),
 // top-right, even on multi-screen setups where only one screen has a panel.
 const MARGIN_RIGHT = 8;
-const GAP_TOP = 8; // small gap between the panel and the popup
+const GAP_TOP = 12; // small gap between the panel and the popup
 
 function topPanel() {
     for (const w of workspace.windowList()) {
