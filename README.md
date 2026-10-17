@@ -1,17 +1,15 @@
 # MatControl
 
-Small control center for a Linux (Fedora/KDE) desktop. Tray popup that slides down from the top panel: a home page of tiles, one per function. Click a tile icon to switch it on/off, click beside it for the details and settings (like Samsung quick settings).
+Small control center for a Linux (Fedora/KDE) desktop. Tray popup that slides down from the top panel: a home page of tiles, one per function. Click a tile icon to switch it on/off, click beside it for the details and settings (like Samsung quick settings). Dark theme from one base color (`#1a242f`), everything animates.
 
-Plugins:
+Plugins (all done):
 
-- System (done): view-only 2x2 tile in the top-right corner with live CPU, RAM and network speed; a click opens the system monitor (`plasma-systemmonitor`, falls back to ksysguard / gnome-system-monitor / missioncenter).
-- Audio Split (done): play the system audio on several output devices at once, choose the devices, volume slider per device. Creates one virtual output, loops it back to every chosen device and makes it the default; switching off restores the previous default. Per device a delay in ms (loopback latency) lines up devices with different latency, e.g. wired and Bluetooth.
+- System: view-only 2x2 tile in the top-right corner with live CPU, RAM and network speed. A click opens the system monitor (`plasma-systemmonitor`, falls back to ksysguard / gnome-system-monitor / missioncenter).
+- Audio Split: play the system audio on several output devices at once; choose the devices, volume slider per device. Creates one virtual output, loops it back to every chosen device and makes it the default; switching off restores the previous default. Per device a delay in ms (loopback latency) lines up devices with different latency, e.g. wired and Bluetooth.
+- Update: checks dnf and flatpak for pending updates (icon tinted when there are some). Click the icon to run a configurable update command as root (Polkit dialog) with a live log; the icon stays inverted while it runs. Default: `dnf upgrade -y`, `flatpak update -y`, `fwupdmgr update -y`.
+- Network: shows the connection state; click the icon to restart NetworkManager (stop, then start) as root (Polkit dialog), e.g. after plugging in an LTE stick. The icon stays inverted until both commands are done.
 
-- Update (done): checks dnf and flatpak for pending updates (icon tinted when there are some), click the icon to run a configurable update command as root (Polkit dialog) with a live log; the icon stays inverted while it runs. Default: `dnf upgrade -y`, `flatpak update -y`, `fwupdmgr update -y`.
-
-- Network (done): shows the connection state; click the icon to restart NetworkManager (stop, then start) as root (Polkit dialog), e.g. after plugging in an LTE stick. The icon stays inverted until both commands are done.
-
-Root commands run through `pkexec` (Polkit password dialog). The UI is German and follows the KDE theme.
+Root commands run through `pkexec` (Polkit password dialog), never `sudo`. The UI is German.
 
 ## Install as a program
 
@@ -20,7 +18,7 @@ Root commands run through `pkexec` (Polkit password dialog). The UI is German an
 ./install.sh --uninstall  # remove everything (config in ~/.config/matcontrol stays)
 ```
 
-Options: `--no-autostart`, `--no-kwin`, `--no-deps`. Per user, no root. After installing, start MatControl from the app menu or run `matcontrol`; at login it starts hidden in the tray. A second launch only opens the popup of the running instance. Re-run `install.sh` if you move the repo.
+Options: `--no-autostart`, `--no-kwin`, `--no-deps`. Per user, no root. After installing, start MatControl from the app menu or run `matcontrol`; at login it starts hidden in the tray. A second launch only opens the popup of the running instance. Re-run `install.sh` if you move the repo, and restart the running instance after updating the code.
 
 ## Run from the repo (development)
 
@@ -34,10 +32,10 @@ python3 -m venv --system-site-packages .venv
 
 ## Panel popup (KDE Plasma 6, Wayland)
 
-By default the window is a frameless popup that closes when it loses focus. Wayland apps cannot position their own windows, so a small KWin script places it at the top right under the panel:
+By default the window is a frameless popup that closes when it loses focus. Wayland apps cannot position their own windows, so a small KWin script places it at the top right, a few pixels under the top panel (`GAP_TOP` in `kwin/matcontrol-popup/contents/code/main.js`):
 
 ```bash
-kwin/install.sh              # install and enable (per user, no root)
+kwin/install.sh              # install, enable and (re)load it (per user, no root)
 kwin/install.sh --uninstall  # remove
 ```
 

@@ -19,7 +19,9 @@ Every function of MatControl is one plugin: one Python file in `matcontrol/plugi
 
 - UI text is German.
 - Look: dark blue-slate, flat, no gradients. All colors derive from one base color in `matcontrol/theme.py`; use `theme.*` constants, never hard-code colors in a plugin.
-- Every state change animates. Use `Button` and `Switch` from `matcontrol/widgets.py` instead of `QPushButton`/`QCheckBox`. For your own animated widget use `Fader` (an animated 0..1 value that repaints the widget); never snap between states.
+- Every state change animates. Use `Button`, `Switch` and `Slider` from `matcontrol/widgets.py` instead of `QPushButton`/`QCheckBox`/`QSlider`. For your own animated widget use `Fader` (an animated 0..1 value that repaints the widget); never snap between states.
+- Layout stability: a label whose text changes (numbers, status) gets `setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)`, otherwise its text width resizes the whole grid every update. Never scroll horizontally; long text wraps. Vertical scroll areas hide their scrollbar (`ScrollBarAlwaysOff`, wheel only).
+- Tests that wait for worker threads or processes use `conftest.wait(ms)`, not `QTest.qWait`.
 - Persistent settings: `ctx.settings` (a dict), then `ctx.save()`. Never write config files yourself.
 - Long-running or external commands: use `QProcess`; other blocking calls (audio server, sockets) go through `tasks.run_in_thread(fn, on_done, *args)`. Never block the UI thread. `plugins/audiosplit.py` is a complete real example (cached state for the tile, background refresh, optimistic toggle).
 - Commands that need root: run them through `pkexec` (Polkit dialog), ready-made in `runner.CommandRunner` (see `plugins/network.py`, the smallest example). Never hard-code `sudo`, never store passwords.

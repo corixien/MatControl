@@ -1,35 +1,37 @@
 # AGENTS.md
 
-MatControl: Python 3 + PySide6 control center (tray popup that slides down under the top panel) for Fedora/KDE. Home page of Samsung-style tiles, one plugin per tile. UI language German. Public repo, no secrets.
+MatControl: Python 3 + PySide6 control center (tray popup that slides down under the top panel) for Fedora/KDE. Home page of Samsung-style tiles, one plugin per tile. UI language German. Public repo (`corixien/MatControl`), no secrets.
 
 ## Commands
 
 - Setup: `python3 -m venv --system-site-packages .venv && .venv/bin/pip install -r requirements-dev.txt`
 - Run: `.venv/bin/python -m matcontrol` (`--minimized` = tray only, `--window` = normal window)
-- Install as program: `./install.sh` (`--uninstall`, `--no-autostart`, `--no-kwin`, `--no-deps`): launcher `~/.local/bin/matcontrol`, `.desktop` + autostart entries, icon, KWin script. After code changes the running instance must be restarted; `pkill` it with the pattern `[p]ython -m matcontrol` (a plain pattern also matches the calling shell)
-- KWin placement script: `kwin/install.sh` (`--uninstall`); positions the popup top right under the panel
 - Test: `.venv/bin/python -m pytest` (headless, `QT_QPA_PLATFORM=offscreen` set in `tests/conftest.py`)
+- Install as program: `./install.sh` (`--uninstall`, `--no-autostart`, `--no-kwin`, `--no-deps`): launcher `~/.local/bin/matcontrol`, `.desktop` + autostart entries (absolute icon path), icon, KWin script. After code changes the running instance must be restarted: `pkill -f "[p]ython -m matcontrol"` (the bracket keeps the pattern from matching the calling shell), then `setsid -f ~/.local/bin/matcontrol --minimized`.
+- KWin placement script: `kwin/install.sh` (`--uninstall`). Puts the popup top right, `GAP_TOP` px under the top panel. It swaps the running script (KWin does not reload an upgraded one by itself), so rerun it after every edit of `kwin/matcontrol-popup/contents/code/main.js`.
+- Git: push straight to `main`, never open PRs. The stored libsecret credential is stale, so push with `git -c credential.helper= -c credential.helper='!gh auth git-credential' push origin main`.
 
 ## Layout
 
-- `matcontrol/app.py` entry, tray. `window.py` popup window, slide animation, home grid + detail pages. `widgets.py` animated Tile, Switch, Button, IconButton, DetailPage, PageStack, Fader. `theme.py` colors (base color #1a242f, all other colors derived from its hue) + stylesheet. `sysstats.py` /proc parsing + Sampler. `runner.py` CommandRunner (pkexec + live output, shared by Update and Network). `config.py` JSON config. `plugin_base.py` API. `plugin_loader.py` discovery.
-- `matcontrol/plugins/*.py` one plugin each; `_`-prefixed files are ignored (`_example.py` is the template).
+- `matcontrol/app.py` entry, tray (icon as pixmaps, no theme name), single instance via local socket `/tmp/matcontrol`. `window.py` popup window, slide animation, 4-column home grid (`place_tiles`) + detail pages. `widgets.py` animated Card, Tile, Switch, Slider, Button, IconButton, DetailPage, PageStack, Fader. `theme.py` colors (base color #1a242f, all other colors derived from its hue) + stylesheet. `plugin_base.py` plugin API. `plugin_loader.py` discovery. `config.py` JSON config. `tasks.py` `run_in_thread`. `runner.py` CommandRunner (pkexec + live output, shared by Update and Network). `sysstats.py` /proc parsing + Sampler. `data/matcontrol.svg` app icon.
+- `matcontrol/plugins/*.py` one plugin each; `_`-prefixed files are ignored (`_example.py` is the template):
+  - `system.py` view-only 2x2 tile top right (CPU, RAM, network), no detail page, click opens the system monitor.
+  - `audiosplit.py` + `audio_backend.py` (pulsectl; null-sink `matcontrol_split` + one loopback per device, loopback latency = per-device delay).
+  - `update.py` + `updates.py` (dnf check-update + flatpak; command via `pkexec sh -c` with live log).
+  - `network.py` + helper module `matcontrol/network.py` (nmcli state; restart = `systemctl stop NetworkManager; systemctl start NetworkManager` via pkexec).
 - Adding a function: follow `HOWTOADDAFUNCTION.md`. Do not edit core files for that.
 
 ## Conventions
 
 - Root actions via `pkexec`, never `sudo`, never stored passwords.
-- External commands via `QProcess`; other blocking work (pulse, sockets) via `tasks.run_in_thread`. UI thread never blocks.
-- Tests that wait on worker threads use `tests/conftest.py:wait`, not `QTest.qWait` (it starves threads).
+- External commands via `QProcess`; other blocking work (pulse, sockets, dnf) via `tasks.run_in_thread`. UI thread never blocks.
+- Tests that wait on worker threads use `tests/conftest.py:wait`, not `QTest.qWait` (it starves threads). `conftest` also disables automatic GC and collects between tests: GC inside a worker thread destroys Qt objects from the wrong thread and crashes the event loop.
 - Everything animates (Fader); colors only from `theme.py`; flat tones, no gradients.
+- Layout stability: labels whose text changes (values, status lines) use `QSizePolicy.Ignored` horizontally, otherwise the text width resizes the tiles every update. No horizontal scrolling anywhere; scrollbars are hidden (wheel scrolling only, and only when the content does not fit).
 - Settings only through `ctx.settings` / `ctx.save()`.
 - No scope creep: no linter, no packaging, no new framework unless asked.
 
 ## Roadmap
 
-1. Skeleton, tray, plugin loader (done)
-1b. Audio Split plugin (done): `plugins/audiosplit.py`, backend `audio_backend.py` (pulsectl; null-sink `matcontrol_split` + one loopback per device, loopback latency = per-device delay)
-2. Update plugin (done): `plugins/update.py`, detection in `updates.py` (dnf check-update + flatpak), command runs via `pkexec sh -c` with live log
-3. Network plugin (done): `plugins/network.py`, state via `network.py` (nmcli), restart = `systemctl stop NetworkManager; systemctl start NetworkManager` via pkexec
-3b. System tile (done): `plugins/system.py` + `sysstats.py` (/proc), 2x2 pinned top-right, no detail page, click launches the system monitor
-4. `install.sh`, `.desktop` entry, autostart (done); single instance via local socket `/tmp/matcontrol`
+Done: skeleton, tray, plugin loader; Audio Split (with per-device delay); Update; Network; System tile; install as program (launcher, menu entry, autostart, icon); popup gap and KWin placement.
+Open: nothing planned. Known: the user reported unspecified small bugs, ask which ones.
