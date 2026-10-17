@@ -1,6 +1,7 @@
-// Places the MatControl popup flush under the top panel (where the tray icon lives),
+// Places the MatControl popup just under the top panel (where the tray icon lives),
 // top-right, even on multi-screen setups where only one screen has a panel.
-const MARGIN_RIGHT = 6;
+const MARGIN_RIGHT = 8;
+const GAP_TOP = 8; // small gap between the panel and the popup
 
 function topPanel() {
     for (const w of workspace.windowList()) {
@@ -26,11 +27,11 @@ function place(win) {
     let y;
     if (panel) {
         x = panel.x + panel.width - geo.width - MARGIN_RIGHT;
-        y = panel.y + panel.height;
+        y = panel.y + panel.height + GAP_TOP;
     } else {
         const area = workspace.clientArea(KWin.MaximizeArea, win);
         x = area.x + area.width - geo.width - MARGIN_RIGHT;
-        y = area.y;
+        y = area.y + GAP_TOP;
     }
     win.frameGeometry = { x: x, y: y, width: geo.width, height: geo.height };
     return true;
