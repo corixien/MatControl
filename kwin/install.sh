@@ -11,6 +11,14 @@ reload() {
     busctl --user call org.kde.KWin /KWin org.kde.KWin reconfigure >/dev/null || true
 }
 
+# KWin keeps running the old code after an upgrade: swap the running script for the installed one.
+restart_script() {
+    local main="${XDG_DATA_HOME:-$HOME/.local/share}/kwin/scripts/$id/contents/code/main.js" script_id
+    busctl --user call org.kde.KWin /Scripting org.kde.kwin.Scripting unloadScript s "$id" >/dev/null 2>&1 || return 0
+    script_id=$(busctl --user call org.kde.KWin /Scripting org.kde.kwin.Scripting loadScript ss "$main" "$id" 2>/dev/null | awk '{print $2}') || return 0
+    [[ -n "$script_id" ]] && busctl --user call org.kde.KWin "/Scripting/Script$script_id" org.kde.kwin.Script run >/dev/null 2>&1 || true
+}
+
 if [[ "${1:-}" == "--uninstall" ]]; then
     kwriteconfig6 --file kwinrc --group Plugins --key "${id}Enabled" false
     kpackagetool6 --type=KWin/Script --remove "$id" || true
@@ -26,4 +34,5 @@ else
 fi
 kwriteconfig6 --file kwinrc --group Plugins --key "${id}Enabled" true
 reload
+restart_script
 echo "installed $id"
