@@ -12,7 +12,7 @@ MatControl: Python 3 + PySide6 control center (tray popup that slides down under
 
 ## Layout
 
-- `matcontrol/app.py` entry, tray. `window.py` popup window, slide animation, home grid + detail pages. `widgets.py` animated Tile, Switch, Button, IconButton, DetailPage, PageStack, Fader. `theme.py` colors (base color #1a242f, all other colors derived from its hue) + stylesheet. `config.py` JSON config. `plugin_base.py` API. `plugin_loader.py` discovery.
+- `matcontrol/app.py` entry, tray. `window.py` popup window, slide animation, home grid + detail pages. `widgets.py` animated Tile, Switch, Button, IconButton, DetailPage, PageStack, Fader. `theme.py` colors (base color #1a242f, all other colors derived from its hue) + stylesheet. `runner.py` CommandRunner (pkexec + live output, shared by Update and Network). `config.py` JSON config. `plugin_base.py` API. `plugin_loader.py` discovery.
 - `matcontrol/plugins/*.py` one plugin each; `_`-prefixed files are ignored (`_example.py` is the template).
 - Adding a function: follow `HOWTOADDAFUNCTION.md`. Do not edit core files for that.
 
@@ -30,5 +30,5 @@ MatControl: Python 3 + PySide6 control center (tray popup that slides down under
 1. Skeleton, tray, plugin loader (done)
 1b. Audio Split plugin (done): `plugins/audiosplit.py`, backend `audio_backend.py` (pulsectl; null-sink `matcontrol_split` + one loopback per device, loopback latency = per-device delay)
 2. Update plugin (done): `plugins/update.py`, detection in `updates.py` (dnf check-update + flatpak), command runs via `pkexec sh -c` with live log
-3. Network plugin (NetworkManager restart via pkexec)
+3. Network plugin (done): `plugins/network.py`, state via `network.py` (nmcli), restart = `systemctl stop NetworkManager; systemctl start NetworkManager` via pkexec
 4. `install.sh`, `.desktop` entry, autostart (done); single instance via local socket `/tmp/matcontrol`

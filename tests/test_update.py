@@ -5,7 +5,7 @@ import pytest
 from PySide6.QtWidgets import QApplication
 
 from conftest import wait
-from matcontrol import updates
+from matcontrol import runner, updates
 from matcontrol.config import Config
 from matcontrol.plugin_base import PluginContext
 from matcontrol.plugins import update
@@ -29,7 +29,7 @@ def qapp():
 @pytest.fixture
 def no_pkexec(monkeypatch):
     """Run the command as the current user instead of through pkexec."""
-    monkeypatch.setattr(update, "privileged_argv", lambda command: ["sh", "-c", command])
+    monkeypatch.setattr(runner, "privileged_argv", lambda command: ["sh", "-c", command])
 
 
 def make_plugin(tmp_path, monkeypatch, count=0):
@@ -137,7 +137,7 @@ def test_second_start_is_ignored_while_running(qapp, tmp_path, monkeypatch, no_p
 
 
 def test_missing_pkexec_does_not_hang(qapp, tmp_path, monkeypatch):
-    monkeypatch.setattr(update, "privileged_argv", lambda command: ["/nonexistent/pkexec", command])
+    monkeypatch.setattr(runner, "privileged_argv", lambda command: ["/nonexistent/pkexec", command])
     plugin, ctx = make_plugin(tmp_path, monkeypatch)
     plugin.toggle(ctx)
     wait(300)
@@ -164,7 +164,7 @@ def test_tile_icon_tints_when_attention_and_inverts_when_active(qapp, tmp_path, 
     wait(150)
     tile = Tile(plugin, ctx)
     assert tile.icon_button.attention.target == 1.0 and tile.icon_button.tone.target == 0.0
-    plugin._runner = update.UpdateRunner()
+    plugin._runner = runner.CommandRunner()
     plugin._runner._process = object()  # pretend an update is running
     tile.refresh()
     assert tile.icon_button.tone.target == 1.0 and tile.icon_button.attention.target == 0.0

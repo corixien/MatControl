@@ -8,12 +8,13 @@ runs through pkexec (Polkit password dialog), never sudo.
 import time
 from collections import deque
 
-from PySide6.QtCore import QObject, QProcess, Qt, Signal
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFontDatabase, QTextCursor
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QVBoxLayout, QWidget
 
 from .. import theme, updates
 from ..plugin_base import Plugin, PluginContext
+from ..runner import POLKIT_DISMISSED, CommandRunner
 from ..tasks import run_in_thread
 from ..widgets import Button
 
@@ -24,65 +25,6 @@ DEFAULT_COMMAND = (
 )
 CHECK_INTERVAL_S = 3600
 LOG_LINES = 2000
-POLKIT_DISMISSED = (126, 127)  # pkexec: dialog cancelled / not authorized
-
-
-def privileged_argv(command: str) -> list[str]:
-    return ["pkexec", "sh", "-c", command]
-
-
-class UpdateRunner(QObject):
-    """Runs the command in a QProcess and streams cleaned output lines."""
-
-    started = Signal()
-    line = Signal(str)
-    finished = Signal(int)  # exit code, -1 when it could not start
-
-    def __init__(self) -> None:
-        super().__init__()
-        self._process: QProcess | None = None
-        self._partial = ""
-
-    @property
-    def running(self) -> bool:
-        return self._process is not None
-
-    def start(self, command: str) -> None:
-        self._partial = ""
-        process = QProcess(self)
-        process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-        process.readyReadStandardOutput.connect(self._read)
-        process.finished.connect(lambda code, _status: self._done(code))
-        process.errorOccurred.connect(lambda error: self._failed(error))
-        self._process = process
-        argv = privileged_argv(command)
-        process.start(argv[0], argv[1:])
-
-    def _read(self) -> None:
-        if self._process is None:
-            return
-        chunk = bytes(self._process.readAllStandardOutput()).decode("utf-8", errors="replace")
-        lines = updates.clean_output(self._partial + chunk)
-        self._partial = lines.pop()
-        for text in lines:
-            self.line.emit(text)
-
-    def _done(self, code: int) -> None:
-        self._read()
-        if self._partial.strip():
-            self.line.emit(updates.clean_output(self._partial)[-1])
-        self._partial = ""
-        self._process, process = None, self._process
-        if process is not None:
-            process.deleteLater()
-        self.finished.emit(code)
-
-    def _failed(self, error: QProcess.ProcessError) -> None:
-        if error == QProcess.ProcessError.FailedToStart and self._process is not None:
-            self.line.emit("pkexec konnte nicht gestartet werden.")
-            self._process, process = None, self._process
-            process.deleteLater()
-            self.finished.emit(-1)
 
 
 class UpdatePlugin(Plugin):
@@ -95,15 +37,15 @@ class UpdatePlugin(Plugin):
         self.status: updates.UpdateStatus | None = None
         self.last_result: str | None = None  # shown until the next check, e.g. "Fehlgeschlagen (Code 1)"
         self.log: deque[str] = deque(maxlen=LOG_LINES)
-        self._runner: UpdateRunner | None = None
+        self._runner: CommandRunner | None = None
         self._ctx: PluginContext | None = None  # context of the running update
         self._checked_at = 0.0
         self._checking = False
 
     @property
-    def runner(self) -> UpdateRunner:
+    def runner(self) -> CommandRunner:
         if self._runner is None:
-            self._runner = UpdateRunner()
+            self._runner = CommandRunner()
             self._runner.line.connect(self.log.append)
             self._runner.finished.connect(self._finished)
         return self._runner

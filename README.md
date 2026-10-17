@@ -8,9 +8,7 @@ Plugins:
 
 - Update (done): checks dnf and flatpak for pending updates (icon tinted when there are some), click the icon to run a configurable update command as root (Polkit dialog) with a live log; the icon stays inverted while it runs. Default: `dnf upgrade -y`, `flatpak update -y`, `fwupdmgr update -y`.
 
-Planned:
-
-- Network: restart NetworkManager with one click (for LTE sticks)
+- Network (done): shows the connection state; click the icon to restart NetworkManager (stop, then start) as root (Polkit dialog), e.g. after plugging in an LTE stick. The icon stays inverted until both commands are done.
 
 Root commands run through `pkexec` (Polkit password dialog). The UI is German and follows the KDE theme.
 
