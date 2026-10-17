@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -354,6 +355,9 @@ class Tile(Card):
         font.setBold(True)
         self.title.setFont(font)
         self.subtitle = QLabel()
+        for label in (self.title, self.subtitle):
+            # text length must never change the tile width (it made the whole grid jump)
+            label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         sub_font = self.subtitle.font()
         sub_font.setPointSizeF(max(sub_font.pointSizeF() - 1, 7))
         self.subtitle.setFont(sub_font)

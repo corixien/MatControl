@@ -129,8 +129,30 @@ def test_stats_tile_updates_while_visible(qapp):
     tile.show()
     files["/proc/stat"], files["/proc/net/dev"] = STAT_2, NET_2
     wait(500)
-    assert tile.cpu.value.text().endswith("%") and tile.cpu.value.text() != "–"
-    assert tile.ram.value.text().startswith("11.4 / 15.3")
-    assert "↓" in tile.net.value.text() and "↑" in tile.net.value.text()
+    assert tile.cpu.right.text().endswith("%") and tile.cpu.right.text() != "–"
+    assert tile.ram.right.text().startswith("11.4 / 15.3")
+    assert tile.net.left.text().startswith("↓") and tile.net.right.text().startswith("↑")
     tile.hide()
     assert not tile.timer.isActive()
+
+
+def test_changing_numbers_never_change_the_grid_widths(qapp, tmp_path):
+    """Regression: the net text length used to resize the tiles every second."""
+    audio = Normal("audio")
+    audio.has_detail = False  # Normal has no detail page
+    window = MainWindow(Config(tmp_path / "c.json"), [system.SystemPlugin(), audio], [], popup=True)
+    window.show()
+    wait(200)
+    tile = window.tiles["system"].findChild(system.SystemStatsTile)
+    widths = lambda: (window.tiles["audio"].width(), window.tiles["system"].width())  # noqa: E731
+    small = sysstats.Stats(1.0, 1.0, 16.0, 6.0, 0.0, 0.0)
+    huge = sysstats.Stats(100.0, 15.9, 16.0, 99.0, 987_654_321.0, 123_456_789.0)
+    tile.show_stats(small)
+    wait(100)
+    before = widths()
+    tile.show_stats(huge)
+    wait(100)
+    assert widths() == before
+    scroll = window.stack.currentWidget()
+    assert scroll.horizontalScrollBar().maximum() == 0
+    assert not scroll.horizontalScrollBar().isVisible()

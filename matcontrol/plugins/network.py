@@ -146,6 +146,8 @@ class NetworkPage(QWidget):
         self.log_view.setMaximumBlockCount(LOG_LINES)
         self.log_view.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
         self.log_view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)  # wheel scrolling only
+        self.log_view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.log_view.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)  # long lines wrap, never scroll sideways
         self.log_view.setPlaceholderText("Ausgabe erscheint hier")
         self.log_view.setPlainText("\n".join(plugin.log))
 

@@ -4,7 +4,7 @@ import shutil
 
 from PySide6.QtCore import QProcess, QRectF, Qt, QTimer
 from PySide6.QtGui import QPainter
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from .. import theme
 from ..plugin_base import Plugin, PluginContext
@@ -53,35 +53,42 @@ class Meter(QWidget):
 
 
 class MetricRow(QWidget):
-    """Title (dim) on the left, value on the right, bar below."""
+    """Left text and right text on top, bar below. The labels ignore their text width: changing
+    numbers must never change the width of the tile."""
 
-    def __init__(self, title: str) -> None:
+    def __init__(self, left: str, dim_left: bool = True) -> None:
         super().__init__()
-        self.title = QLabel(title)
-        palette = self.title.palette()
-        palette.setColor(self.title.foregroundRole(), theme.TEXT_DIM)
-        self.title.setPalette(palette)
-        self.value = QLabel("–")
-        font = self.value.font()
-        font.setBold(True)
-        self.value.setFont(font)
-        self.value.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.left = QLabel(left)
+        self.right = QLabel("–")
+        for label in (self.left, self.right):
+            label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.right.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        bold = self.right.font()
+        bold.setBold(True)
+        self.right.setFont(bold)
+        if dim_left:
+            palette = self.left.palette()
+            palette.setColor(self.left.foregroundRole(), theme.TEXT_DIM)
+            self.left.setPalette(palette)
+        else:
+            self.left.setFont(bold)
         self.meter = Meter()
 
         header = QHBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
-        header.addWidget(self.title)
-        header.addWidget(self.value, 1)
+        header.addWidget(self.left, 1)
+        header.addWidget(self.right, 1)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(5)
         layout.addLayout(header)
         layout.addWidget(self.meter)
 
-    def show_value(self, text: str, fraction: float | None) -> None:
-        self.value.setText(text)
-        if fraction is not None:
-            self.meter.set_fraction(fraction)
+    def show_value(self, text: str, fraction: float, left: str | None = None) -> None:
+        self.right.setText(text)
+        if left is not None:
+            self.left.setText(left)
+        self.meter.set_fraction(fraction)
 
 
 class SystemStatsTile(QWidget):
@@ -93,7 +100,7 @@ class SystemStatsTile(QWidget):
         self.net_peak = float(MIN_NET_SCALE)
         self.cpu = MetricRow("CPU")
         self.ram = MetricRow("RAM")
-        self.net = MetricRow("Netzwerk")
+        self.net = MetricRow("↓ –", dim_left=False)  # arrows are the titles: download left, upload right
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -127,8 +134,11 @@ class SystemStatsTile(QWidget):
         self.cpu.show_value(f"{stats.cpu_percent:.0f} %", stats.cpu_percent / 100)
         self.ram.show_value(f"{stats.ram_used_gb:.1f} / {stats.ram_total_gb:.1f} GB", stats.ram_percent / 100)
         self.net_peak = max(self.net_peak * 0.97, stats.rx_bytes_per_s, float(MIN_NET_SCALE))
-        text = f"↓ {format_rate(stats.rx_bytes_per_s)}   ↑ {format_rate(stats.tx_bytes_per_s)}"
-        self.net.show_value(text, stats.rx_bytes_per_s / self.net_peak)
+        self.net.show_value(
+            f"↑ {format_rate(stats.tx_bytes_per_s)}",
+            stats.rx_bytes_per_s / self.net_peak,
+            left=f"↓ {format_rate(stats.rx_bytes_per_s)}",
+        )
 
 
 class SystemPlugin(Plugin):

@@ -76,6 +76,7 @@ def stylesheet(popup: bool) -> str:
     return f"""
 #panel {{ background: {BG.name()}; border: 1px solid {BORDER.name()}; {edge} }}
 QScrollArea, QScrollArea > QWidget > QWidget {{ background: transparent; border: none; }}
+QScrollBar:horizontal {{ height: 0px; }}
 QScrollBar:vertical {{ background: transparent; width: 8px; margin: 2px; }}
 QScrollBar::handle:vertical {{ background: {SCROLL.name()}; border-radius: 2px; min-height: 24px; }}
 QScrollBar::handle:vertical:hover {{ background: {SCROLL_HOVER.name()}; }}
