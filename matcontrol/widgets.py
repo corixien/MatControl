@@ -294,19 +294,53 @@ class Button(_Hoverable, QPushButton):
         p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self.text())
 
 
-class Tile(QFrame):
-    """Quick-settings tile: icon click toggles, click anywhere else opens the details."""
+class Card(QFrame):
+    """Rounded clickable surface with animated hover/press. Base of every home tile."""
 
     opened = Signal()
+
+    def __init__(self, min_height: int = 74):
+        super().__init__()
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setMinimumHeight(min_height)
+        self.hover = Fader(self, 160)
+        self.press = Fader(self, 100)
+
+    def paintEvent(self, _event) -> None:
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        color = mix(theme.SURFACE, theme.SURFACE_HOVER, self.hover.value)
+        color = mix(color, theme.SURFACE_PRESS, self.press.value)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(color)
+        p.drawRoundedRect(QRectF(self.rect()), 16, 16)
+
+    def enterEvent(self, event) -> None:
+        self.hover.to(1)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:
+        self.hover.to(0)
+        self.press.to(0)
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.press.to(1)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        self.press.to(0)
+        if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(event.position().toPoint()):
+            self.opened.emit()
+
+
+class Tile(Card):
+    """Quick-settings tile: icon click toggles, click anywhere else opens the details."""
 
     def __init__(self, plugin: Plugin, ctx: PluginContext):
         super().__init__()
         self.plugin = plugin
         self.ctx = ctx
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setMinimumHeight(74)
-        self.hover = Fader(self, 160)
-        self.press = Fader(self, 100)
 
         self.icon_button = IconButton(plugin.icon, 22, 44)
         self.icon_button.bg_off = theme.WASH
@@ -356,33 +390,6 @@ class Tile(QFrame):
         if self.plugin.toggleable:
             toggle_plugin(self.plugin, self.ctx)
         else:
-            self.opened.emit()
-
-    def paintEvent(self, _event) -> None:
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        color = mix(theme.SURFACE, theme.SURFACE_HOVER, self.hover.value)
-        color = mix(color, theme.SURFACE_PRESS, self.press.value)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(color)
-        p.drawRoundedRect(QRectF(self.rect()), 16, 16)
-
-    def enterEvent(self, event) -> None:
-        self.hover.to(1)
-        super().enterEvent(event)
-
-    def leaveEvent(self, event) -> None:
-        self.hover.to(0)
-        self.press.to(0)
-        super().leaveEvent(event)
-
-    def mousePressEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.press.to(1)
-
-    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
-        self.press.to(0)
-        if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(event.position().toPoint()):
             self.opened.emit()
 
 

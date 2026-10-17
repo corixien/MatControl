@@ -12,6 +12,7 @@ class PluginContext(QObject):
     """
 
     changed = Signal()
+    close_requested = Signal()
 
     def __init__(self, config: Config, plugin_id: str):
         super().__init__()
@@ -28,6 +29,10 @@ class PluginContext(QObject):
     def notify_changed(self) -> None:
         self.changed.emit()
 
+    def request_close(self) -> None:
+        """Ask the popup to slide away (e.g. after launching another app)."""
+        self.close_requested.emit()
+
 
 class Plugin:
     """Base class. One subclass per file in matcontrol/plugins/."""
@@ -36,10 +41,21 @@ class Plugin:
     name: str = ""  # German label on the home tile and detail header
     icon: str = "applications-system"  # freedesktop theme icon name
     order: int = 100  # tile position, lower first
+    tile_cells: tuple[int, int] = (2, 1)  # tile size in grid cells (width, height); the grid has 4 columns
+    tile_pin: str | None = None  # "top-right" pins a tile to that corner, the other tiles flow around it
+    has_detail: bool = True  # False: no detail page, a tile click calls tile_clicked() instead
 
     def create_widget(self, ctx: PluginContext) -> QWidget:
         """Detail page shown when the user clicks beside the tile icon."""
         raise NotImplementedError
+
+    def create_tile(self, ctx: PluginContext) -> QWidget | None:
+        """Return a widget to fill the tile with your own content instead of the standard
+        icon + title + subtitle tile (the app wraps it in a clickable card)."""
+        return None
+
+    def tile_clicked(self, ctx: PluginContext) -> None:
+        """Called on a tile click when has_detail is False."""
 
     # Home tile. These run on the UI thread every few seconds: keep them cheap.
 

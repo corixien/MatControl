@@ -15,15 +15,47 @@ from PySide6.QtWidgets import (
 from . import theme
 from .config import Config
 from .plugin_base import Plugin, PluginContext
-from .widgets import DetailPage, PageStack, Tile
+from .widgets import Card, DetailPage, PageStack, Tile
 
-COLUMNS = 2
+COLUMNS = 4  # grid cells; a normal tile spans 2 columns x 1 row
 SHOW_MS = 340
 HIDE_MS = 260
 OVERSHOOT = 24  # extra distance so no sub-pixel edge of the panel stays visible when closed
 SETTLE_MS = 100  # after the window is exposed, give KWin time to place it
 MAX_STEP_S = 1 / 30  # a stall (window mapping, placement) delays the slide instead of skipping it
 GRACE_S = 0.6  # ignore focus loss right after opening (compositor may bounce activation)
+
+
+def place_tiles(plugins: list[Plugin]) -> dict[str, tuple[int, int]]:
+    """Grid cell (row, column) per plugin id. Pinned tiles take their corner first, the others
+    fill the remaining cells left to right, top to bottom."""
+    taken: set[tuple[int, int]] = set()
+    placed: dict[str, tuple[int, int]] = {}
+
+    def fits(row: int, column: int, width: int, height: int) -> bool:
+        cells = {(r, c) for r in range(row, row + height) for c in range(column, column + width)}
+        return column + width <= COLUMNS and not cells & taken
+
+    def take(plugin: Plugin, row: int, column: int) -> None:
+        width, height = plugin.tile_cells
+        taken.update((r, c) for r in range(row, row + height) for c in range(column, column + width))
+        placed[plugin.id] = (row, column)
+
+    for plugin in plugins:
+        if plugin.tile_pin == "top-right":
+            take(plugin, 0, COLUMNS - plugin.tile_cells[0])
+    for plugin in plugins:
+        if plugin.id in placed:
+            continue
+        width, height = plugin.tile_cells
+        row = 0
+        while plugin.id not in placed:
+            for column in range(0, COLUMNS - width + 1, 2):  # tiles sit on the 2-column raster
+                if fits(row, column, width, height):
+                    take(plugin, row, column)
+                    break
+            row += 1
+    return placed
 
 
 class _Slide(QObject):
@@ -109,7 +141,10 @@ class MainWindow(QMainWindow):
         self.stack = PageStack()
         self.stack.addWidget(self._build_home(config, plugins, errors))
         self.pages: dict[str, QWidget] = {}
+        self.plugins = {p.id: p for p in plugins}
         for plugin in plugins:
+            if not plugin.has_detail:
+                continue
             ctx = self._contexts[plugin.id]
             page = DetailPage(plugin, ctx)
             page.back.connect(self.show_home)
@@ -129,11 +164,25 @@ class MainWindow(QMainWindow):
         grid.setSpacing(10)
         for column in range(COLUMNS):
             grid.setColumnStretch(column, 1)
-        for index, plugin in enumerate(plugins):
-            tile = Tile(plugin, self._contexts[plugin.id])
+        self.tiles: dict[str, QWidget] = {}
+        placements = place_tiles(plugins)
+        for plugin in plugins:
+            ctx = self._contexts[plugin.id]
+            row, column = placements[plugin.id]
+            width, height = plugin.tile_cells
+            body = plugin.create_tile(ctx)
+            if body is None:
+                tile: Card = Tile(plugin, ctx)
+            else:
+                tile = Card()
+                layout = QVBoxLayout(tile)
+                layout.setContentsMargins(14, 12, 14, 12)
+                layout.addWidget(body)
             tile.opened.connect(lambda pid=plugin.id: self.open_plugin(pid))
-            grid.addWidget(tile, index // COLUMNS, index % COLUMNS)
-        rows = (len(plugins) + COLUMNS - 1) // COLUMNS
+            grid.addWidget(tile, row, column, height, width)
+            self.tiles[plugin.id] = tile
+            ctx.close_requested.connect(self.hide_animated)
+        rows = max((placements[p.id][0] + p.tile_cells[1] for p in plugins), default=0)
         if not plugins:
             grid.addWidget(QLabel("Keine Plugins gefunden."), 0, 0)
         if errors:
@@ -157,7 +206,11 @@ class MainWindow(QMainWindow):
         self.stack.setCurrentIndex(0)
 
     def open_plugin(self, plugin_id: str) -> None:
-        self.stack.setCurrentWidget(self.pages[plugin_id])
+        plugin = self.plugins[plugin_id]
+        if plugin.has_detail:
+            self.stack.setCurrentWidget(self.pages[plugin_id])
+        else:
+            plugin.tile_clicked(self._contexts[plugin_id])
 
     # slide animation
 

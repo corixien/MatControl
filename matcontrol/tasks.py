@@ -40,7 +40,10 @@ class _Job(QRunnable):
             result, error = self.fn(*self.args), None
         except Exception as exc:  # reported to the callback, never lost in the thread
             result, error = None, exc
-        self.signals.done.emit((self, result, error))
+        try:
+            self.signals.done.emit((self, result, error))
+        except RuntimeError:
+            pass  # the app quit while the job was running: nobody is left to receive the result
 
 
 _dispatcher: _Dispatcher | None = None
