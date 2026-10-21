@@ -2,11 +2,11 @@
 
 > Instruction for Claude: read this whole file first. Then read every file under "Must read before any change". Do not modify anything until you have fully understood the project. Keep this file updated as you work (see "Maintenance rules").
 
-Last updated: 2026-10-17
+Last updated: 2026-10-21
 
 ## 1. What this project is
 MatControl: Python 3 + PySide6 control center for Fedora/KDE (Plasma 6, Wayland). A tray popup slides down under the top panel; the home page is a 4-column grid of Samsung-style tiles, one plugin per tile (click icon = on/off, click beside = details). Dark flat theme derived from base color #1a242f, everything animates. UI language German. Public repo `corixien/MatControl`, no secrets.
-Plugins, all done: System (view-only 2x2 tile top right: CPU, RAM, network; click opens the system monitor), Audio Split (play audio on several outputs, volume + delay in ms per device), Update (dnf + flatpak check, update command via pkexec with live log), Network (restart NetworkManager via pkexec, shows connection state).
+Plugins, all done: Usage (2x1 under System: weekly Claude limit % + reset time from the undocumented `api.anthropic.com/api/oauth/usage` endpoint using the Claude Code OAuth token in `~/.claude/.credentials.json`, read-only; click opens `claude-desktop`), System (view-only 2x2 tile top right: CPU, RAM, network; click opens the system monitor), Audio Split (play audio on several outputs, volume + delay in ms per device), Update (dnf + flatpak check, update command via pkexec with live log), Network (restart NetworkManager via pkexec, shows connection state).
 The program is installed for the user (`./install.sh`): launcher `~/.local/bin/matcontrol`, menu entry, autostart (hidden in tray), KWin placement script.
 
 ## 2. Must read before any change
@@ -19,7 +19,7 @@ The program is installed for the user (`./install.sh`): launcher `~/.local/bin/m
 
 ## 3. How to navigate
 - `matcontrol/app.py` entry, tray (icon as pixmaps without theme name), single instance via local socket `/tmp/matcontrol`; `__main__.py` CLI (`--minimized`, `--window`).
-- `matcontrol/plugins/*.py` one plugin each (`_`-prefixed ignored; `_example.py` = template): `system.py` (+ `sysstats.py`), `audiosplit.py` (+ `audio_backend.py`: pulsectl, null-sink `matcontrol_split`, one loopback per device, loopback latency = delay), `update.py` (+ `updates.py`), `network.py` (+ `matcontrol/network.py`).
+- `matcontrol/plugins/*.py` one plugin each (`_`-prefixed ignored; `_example.py` = template): `system.py` (+ `sysstats.py`), `audiosplit.py` (+ `audio_backend.py`: pulsectl, null-sink `matcontrol_split`, one loopback per device, loopback latency = delay), `update.py` (+ `updates.py`), `network.py` (+ `matcontrol/network.py`), `usage.py` (+ `matcontrol/usage.py`).
 - `matcontrol/runner.py` CommandRunner (pkexec, live output) shared by Update and Network. `matcontrol/tasks.py` `run_in_thread` for blocking work. `matcontrol/config.py` JSON config (`~/.config/matcontrol`), settings only via `ctx.settings` / `ctx.save()`.
 - `kwin/matcontrol-popup/` KWin script (places the popup `GAP_TOP` px under the top panel, found via the plasmashell dock window); `kwin/install.sh` installs and reloads it. `install.sh` installs launcher, `.desktop`, autostart, icon (`matcontrol/data/matcontrol.svg`).
 
@@ -27,7 +27,7 @@ The program is installed for the user (`./install.sh`): launcher `~/.local/bin/m
 Run from `~/MatControl`.
 - Setup: `python3 -m venv --system-site-packages .venv && .venv/bin/pip install -r requirements-dev.txt`
 - Run: `.venv/bin/python -m matcontrol`
-- Test: `.venv/bin/python -m pytest` (headless, 84 tests).
+- Test: `.venv/bin/python -m pytest` (headless, 90 tests).
 - Install as program: `./install.sh` (`--uninstall`, `--no-autostart`, `--no-kwin`, `--no-deps`).
 - Restart the running instance after code changes: `pkill -f "[p]ython -m matcontrol"; setsid -f ~/.local/bin/matcontrol --minimized`. After editing the KWin script run `kwin/install.sh` (KWin does not reload an upgraded script by itself).
 - Push: straight to `main`, never PRs: `git -c credential.helper= -c credential.helper='!gh auth git-credential' push origin main` (the stored libsecret credential is stale).
