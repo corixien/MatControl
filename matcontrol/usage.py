@@ -73,8 +73,10 @@ def fetch_weekly_usage() -> WeeklyUsage:
 
 
 def pace_target(resets_at: datetime | None, now: datetime | None = None) -> float | None:
-    """Percent of the weekly limit that is "due" by now when spread evenly (100/7 = 14.3 % per day)."""
+    """Percent of the weekly limit allowed by the end of today: 100/7 per started day of the week
+    (the first day starts at the reset, so right after the reset it is already 14.3 %)."""
     if resets_at is None:
         return None
-    left = (resets_at - (now or datetime.now(timezone.utc))).total_seconds()
-    return max(0.0, min(100.0, 100.0 * (1 - left / WEEK_S)))
+    elapsed = WEEK_S - (resets_at - (now or datetime.now(timezone.utc))).total_seconds()
+    day = min(7, max(0, int(elapsed // 86400)) + 1)
+    return 100.0 * day / 7

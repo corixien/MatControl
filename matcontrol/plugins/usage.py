@@ -1,4 +1,4 @@
-"""Claude usage: 2x1 tile with the weekly limit used so far (claude.ai + Claude Code) next to the even-pace target. A click opens Claude Desktop."""
+"""Claude usage: 2x1 tile with the weekly limit used so far (claude.ai + Claude Code) next to the daily target. A click opens Claude Desktop."""
 
 import shutil
 import time

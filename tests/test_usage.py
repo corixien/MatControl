@@ -35,11 +35,12 @@ def test_read_token(tmp_path):
 
 
 def test_pace_target():
-    now = datetime(2026, 10, 20, tzinfo=timezone.utc)
-    assert usage.pace_target(now + timedelta(days=7), now) == pytest.approx(0.0)
-    assert usage.pace_target(now + timedelta(days=6), now) == pytest.approx(100 / 7)
-    assert usage.pace_target(now + timedelta(days=3.5), now) == pytest.approx(50.0)
-    assert usage.pace_target(now - timedelta(seconds=1), now) == 100.0
+    reset = datetime(2026, 10, 25, 0, 0, tzinfo=timezone.utc)
+    start = reset - timedelta(days=7)
+    assert usage.pace_target(reset, start) == pytest.approx(100 / 7)  # first day
+    assert usage.pace_target(reset, start + timedelta(days=3, hours=5)) == pytest.approx(400 / 7)  # fourth day
+    assert usage.pace_target(reset, reset - timedelta(seconds=1)) == pytest.approx(100.0)  # seventh day
+    assert usage.pace_target(reset, reset + timedelta(hours=1)) == 100.0
     assert usage.pace_target(None) is None
 
 
