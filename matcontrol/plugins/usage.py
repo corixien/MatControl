@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from ..plugin_base import Plugin, PluginContext
 from ..tasks import run_in_thread
-from ..usage import UsageError, WeeklyUsage, fetch_weekly_usage, format_reset
+from ..usage import UsageError, WeeklyUsage, fetch_weekly_usage, pace_target
 from .system import MetricRow
 
 REFRESH_S = 300  # the endpoint is undocumented and rate limited: ask rarely

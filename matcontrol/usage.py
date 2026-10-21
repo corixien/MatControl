@@ -14,6 +14,7 @@ from pathlib import Path
 CREDENTIALS = Path.home() / ".claude" / ".credentials.json"
 URL = "https://api.anthropic.com/api/oauth/usage"
 TIMEOUT_S = 15
+WEEK_S = 7 * 86400
 
 
 @dataclass(frozen=True)
@@ -71,14 +72,9 @@ def fetch_weekly_usage() -> WeeklyUsage:
         raise UsageError("Keine Verbindung") from None
 
 
-def format_reset(resets_at: datetime | None, now: datetime | None = None) -> str:
+def pace_target(resets_at: datetime | None, now: datetime | None = None) -> float | None:
+    """Percent of the weekly limit that is "due" by now when spread evenly (100/7 = 14.3 % per day)."""
     if resets_at is None:
-        return ""
-    seconds = int((resets_at - (now or datetime.now(timezone.utc))).total_seconds())
-    if seconds <= 0:
-        return "Reset jetzt"
-    days, rest = divmod(seconds, 86400)
-    hours, rest = divmod(rest, 3600)
-    if days:
-        return f"Reset in {days} T {hours} Std"
-    return f"Reset in {hours} Std {rest // 60} Min"
+        return None
+    left = (resets_at - (now or datetime.now(timezone.utc))).total_seconds()
+    return max(0.0, min(100.0, 100.0 * (1 - left / WEEK_S)))
