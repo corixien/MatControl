@@ -1,4 +1,4 @@
-"""Claude usage: 2x1 tile with the weekly limit used so far (claude.ai + Claude Code). A click opens Claude Desktop."""
+"""Claude usage: 2x1 tile with the weekly limit used so far (claude.ai + Claude Code) next to the even-pace target. A click opens Claude Desktop."""
 
 import shutil
 import time
@@ -76,8 +76,9 @@ class UsageTile(QWidget):
         if self.error and self.usage is None:
             self.row.show_value(self.error, 0.0, left="Claude Woche")
         elif self.usage is not None:
-            suffix = format_reset(self.usage.resets_at, datetime.now(timezone.utc))
-            self.row.show_value(f"{self.usage.percent:.0f} %", self.usage.percent / 100, left=suffix or "Claude Woche")
+            target = pace_target(self.usage.resets_at, datetime.now(timezone.utc))
+            left = "Claude Woche" if target is None else f"Soll {target:.0f} %"
+            self.row.show_value(f"{self.usage.percent:.0f} %", self.usage.percent / 100, left=left)
 
 
 class UsagePlugin(Plugin):

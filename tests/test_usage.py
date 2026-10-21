@@ -34,12 +34,13 @@ def test_read_token(tmp_path):
         usage.read_token(tmp_path / "missing.json")
 
 
-def test_format_reset():
+def test_pace_target():
     now = datetime(2026, 10, 20, tzinfo=timezone.utc)
-    assert usage.format_reset(now + timedelta(days=2, hours=3, minutes=5), now) == "Reset in 2 T 3 Std"
-    assert usage.format_reset(now + timedelta(hours=5, minutes=7), now) == "Reset in 5 Std 7 Min"
-    assert usage.format_reset(now - timedelta(seconds=1), now) == "Reset jetzt"
-    assert usage.format_reset(None) == ""
+    assert usage.pace_target(now + timedelta(days=7), now) == pytest.approx(0.0)
+    assert usage.pace_target(now + timedelta(days=6), now) == pytest.approx(100 / 7)
+    assert usage.pace_target(now + timedelta(days=3.5), now) == pytest.approx(50.0)
+    assert usage.pace_target(now - timedelta(seconds=1), now) == 100.0
+    assert usage.pace_target(None) is None
 
 
 def test_tile_sits_under_system_tile():
