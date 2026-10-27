@@ -91,5 +91,5 @@ def format_reset(resets_at: datetime | None, now: datetime | None = None) -> str
     days, rest = divmod(seconds, 86400)
     hours, rest = divmod(rest, 3600)
     if days:
-        return f"Reset in {days} T {hours} Std"
-    return f"Reset in {hours} Std {rest // 60} Min"
+        return f"Reset in {days}d {hours}h"
+    return f"Reset in {hours}h {rest // 60}m"

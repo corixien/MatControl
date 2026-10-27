@@ -59,8 +59,8 @@ def make_ctx(tmp_path):
 
 def test_format_reset():
     now = datetime(2026, 10, 20, tzinfo=timezone.utc)
-    assert usage.format_reset(now + timedelta(days=2, hours=3, minutes=5), now) == "Reset in 2 T 3 Std"
-    assert usage.format_reset(now + timedelta(hours=5, minutes=7), now) == "Reset in 5 Std 7 Min"
+    assert usage.format_reset(now + timedelta(days=2, hours=3, minutes=5), now) == "Reset in 2d 3h"
+    assert usage.format_reset(now + timedelta(hours=5, minutes=7), now) == "Reset in 5h 7m"
     assert usage.format_reset(now - timedelta(seconds=1), now) == "Reset jetzt"
     assert usage.format_reset(None) == ""
 
@@ -69,7 +69,7 @@ def test_tile_shows_reset_and_target_marker(qapp, tmp_path):
     tile = usage_plugin.UsageTile(make_ctx(tmp_path))
     resets = datetime.now(timezone.utc) + timedelta(days=3, hours=1)
     tile._fetched(usage.WeeklyUsage(42.0, resets), None)
-    assert tile.row.right.text() == "42 %" and tile.row.left.text().startswith("Reset in 3 T")
+    assert tile.row.right.text() == "42 %" and tile.row.left.text().startswith("Reset in 3d")
     assert tile.row.meter.has_marker and tile.row.meter.marker.target == pytest.approx(4 / 7)
 
 
