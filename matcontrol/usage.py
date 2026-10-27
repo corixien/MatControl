@@ -80,3 +80,16 @@ def pace_target(resets_at: datetime | None, now: datetime | None = None) -> floa
     elapsed = WEEK_S - (resets_at - (now or datetime.now(timezone.utc))).total_seconds()
     day = min(7, max(0, int(elapsed // 86400)) + 1)
     return 100.0 * day / 7
+
+
+def format_reset(resets_at: datetime | None, now: datetime | None = None) -> str:
+    if resets_at is None:
+        return ""
+    seconds = int((resets_at - (now or datetime.now(timezone.utc))).total_seconds())
+    if seconds <= 0:
+        return "Reset jetzt"
+    days, rest = divmod(seconds, 86400)
+    hours, rest = divmod(rest, 3600)
+    if days:
+        return f"Reset in {days} T {hours} Std"
+    return f"Reset in {hours} Std {rest // 60} Min"

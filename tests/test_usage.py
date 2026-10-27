@@ -50,15 +50,46 @@ def test_tile_sits_under_system_tile():
     assert not errors and placed["system"] == (0, 2) and placed["usage"] == (2, 2)
 
 
-def test_tile_shows_values_and_errors(qapp):
-    tile = usage_plugin.UsageTile()
-    tile._fetched(usage.WeeklyUsage(42.0, None), None)
-    assert tile.row.right.text() == "42 %"
+def make_ctx(tmp_path):
+    from matcontrol.config import Config
+    from matcontrol.plugin_base import PluginContext
+
+    return PluginContext(Config(tmp_path / "c.json"), "usage")
+
+
+def test_format_reset():
+    now = datetime(2026, 10, 20, tzinfo=timezone.utc)
+    assert usage.format_reset(now + timedelta(days=2, hours=3, minutes=5), now) == "Reset in 2 T 3 Std"
+    assert usage.format_reset(now + timedelta(hours=5, minutes=7), now) == "Reset in 5 Std 7 Min"
+    assert usage.format_reset(now - timedelta(seconds=1), now) == "Reset jetzt"
+    assert usage.format_reset(None) == ""
+
+
+def test_tile_shows_reset_and_target_marker(qapp, tmp_path):
+    tile = usage_plugin.UsageTile(make_ctx(tmp_path))
+    resets = datetime.now(timezone.utc) + timedelta(days=3, hours=1)
+    tile._fetched(usage.WeeklyUsage(42.0, resets), None)
+    assert tile.row.right.text() == "42 %" and tile.row.left.text().startswith("Reset in 3 T")
+    assert tile.row.meter.has_marker and tile.row.meter.marker.target == pytest.approx(4 / 7)
+
+
+def test_tile_keeps_last_value_when_fetch_fails_and_after_restart(qapp, tmp_path):
+    ctx = make_ctx(tmp_path)
+    tile = usage_plugin.UsageTile(ctx)
+    tile._fetched(None, usage.UsageError("Token abgelaufen, Claude Code starten"))
+    assert tile.row.right.text() == "Token abgelaufen, Claude Code starten"
+    tile._fetched(usage.WeeklyUsage(42.0, datetime.now(timezone.utc) + timedelta(days=2)), None)
     tile._fetched(None, usage.UsageError("Keine Verbindung"))
-    assert tile.row.right.text() == "42 %"  # the last good value stays
-    fresh = usage_plugin.UsageTile()
-    fresh._fetched(None, usage.UsageError("Keine Verbindung"))
-    assert fresh.row.right.text() == "Keine Verbindung"
+    assert tile.row.right.text() == "42 %" and tile.row.left.text().endswith("(alt)")
+    restarted = usage_plugin.UsageTile(ctx)  # new app start, still no connection
+    restarted.render()
+    assert restarted.row.right.text() == "42 %"
+
+
+def test_tile_ignores_saved_value_of_a_past_week(qapp, tmp_path):
+    ctx = make_ctx(tmp_path)
+    ctx.settings["last"] = {"percent": 90.0, "resets_at": "2020-01-01T00:00:00+00:00"}
+    assert usage_plugin.UsageTile(ctx).usage is None
 
 
 def test_click_launches_desktop_app(qapp, tmp_path, monkeypatch):

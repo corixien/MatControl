@@ -19,7 +19,7 @@ MatControl: Python 3 + PySide6 control center (tray popup that slides down under
   - `audiosplit.py` + `audio_backend.py` (pulsectl; null-sink `matcontrol_split` + one loopback per device, loopback latency = per-device delay).
   - `update.py` + `updates.py` (dnf check-update + flatpak; command via `pkexec sh -c` with live log).
   - `network.py` + helper module `matcontrol/network.py` (nmcli state; restart = `systemctl stop NetworkManager; systemctl start NetworkManager` via pkexec).
-  - `usage.py` + `matcontrol/usage.py` 2x1 tile (order 40, flows into the cell under System), weekly Claude limit and daily target (14.3 % x started days since the reset) ("Soll N %") from `api.anthropic.com/api/oauth/usage` with the Claude Code OAuth token (read only, never refreshed/stored/logged), fetch in a worker thread at most every 5 min, click opens `claude-desktop`.
+  - `usage.py` + `matcontrol/usage.py` 2x1 tile (order 40, flows into the cell under System), weekly Claude limit, reset countdown and a bar line at the daily target (14.3 % x started days since the reset); last value cached in `ctx.settings` ("(alt)" when the fetch fails, e.g. expired token) from `api.anthropic.com/api/oauth/usage` with the Claude Code OAuth token (read only, never refreshed/stored/logged), fetch in a worker thread at most every 5 min, click opens `claude-desktop`.
 - Adding a function: follow `HOWTOADDAFUNCTION.md`. Do not edit core files for that.
 
 ## Conventions

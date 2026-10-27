@@ -14,6 +14,7 @@ from ..widgets import Fader
 MONITORS = ("plasma-systemmonitor", "ksysguard", "gnome-system-monitor", "missioncenter")
 INTERVAL_MS = 1000
 FIRST_SAMPLE_MS = 300  # show numbers soon after opening instead of after a full second
+MARKER_WIDTH = 2
 MIN_NET_SCALE = 1_000_000  # bytes/s that fill the network bar at least
 
 
@@ -36,9 +37,18 @@ class Meter(QWidget):
         super().__init__()
         self.setFixedHeight(6)
         self.level = Fader(self, 500)
+        self.marker = Fader(self, 500)  # position of the optional target line
+        self.has_marker = False
 
     def set_fraction(self, fraction: float) -> None:
         self.level.to(max(0.0, min(1.0, fraction)))
+
+    def set_marker(self, fraction: float | None) -> None:
+        """Thin full-height line at `fraction` of the bar; None hides it."""
+        self.has_marker = fraction is not None
+        if fraction is not None:
+            self.marker.to(max(0.0, min(1.0, fraction)))
+        self.update()
 
     def paintEvent(self, _event) -> None:
         p = QPainter(self)
@@ -50,6 +60,10 @@ class Meter(QWidget):
         p.setBrush(theme.ON)
         width = max(self.height(), self.width() * self.level.value) if self.level.value > 0 else 0
         p.drawRoundedRect(QRectF(0, 0, width, self.height()), radius, radius)
+        if self.has_marker:
+            x = min(self.width() - MARKER_WIDTH, self.marker.value * self.width())
+            p.setBrush(theme.TEXT)
+            p.drawRect(QRectF(x, 0, MARKER_WIDTH, self.height()))
 
 
 class MetricRow(QWidget):
@@ -84,8 +98,9 @@ class MetricRow(QWidget):
         layout.addLayout(header)
         layout.addWidget(self.meter)
 
-    def show_value(self, text: str, fraction: float, left: str | None = None) -> None:
+    def show_value(self, text: str, fraction: float, left: str | None = None, marker: float | None = None) -> None:
         self.right.setText(text)
+        self.meter.set_marker(marker)
         if left is not None:
             self.left.setText(left)
         self.meter.set_fraction(fraction)

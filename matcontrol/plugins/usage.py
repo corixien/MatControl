@@ -1,4 +1,4 @@
-"""Claude usage: 2x1 tile with the weekly limit used so far (claude.ai + Claude Code) next to the daily target. A click opens Claude Desktop."""
+"""Claude usage: 2x1 tile with the weekly limit used so far (claude.ai + Claude Code) with a line at the daily target. A click opens Claude Desktop."""
 
 import shutil
 import time
@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from ..plugin_base import Plugin, PluginContext
 from ..tasks import run_in_thread
-from ..usage import UsageError, WeeklyUsage, fetch_weekly_usage, pace_target
+from ..usage import UsageError, WeeklyUsage, fetch_weekly_usage, format_reset, pace_target
 from .system import MetricRow
 
 REFRESH_S = 300  # the endpoint is undocumented and rate limited: ask rarely
@@ -27,11 +27,14 @@ def find_desktop_app() -> str | None:
 
 
 class UsageTile(QWidget):
-    """Fetches in a worker thread, only while visible and at most every REFRESH_S seconds."""
+    """Fetches in a worker thread, only while visible and at most every REFRESH_S seconds.
+    The last value is kept in the settings: Claude Code renews its token only when it is used, so
+    after a day without it the fetch fails and the tile shows the last known value as "alt"."""
 
-    def __init__(self) -> None:
+    def __init__(self, ctx: PluginContext) -> None:
         super().__init__()
-        self.usage: WeeklyUsage | None = None
+        self.ctx = ctx
+        self.usage: WeeklyUsage | None = self._load()
         self.error: str | None = None
         self._fetched_at = 0.0
         self._fetching = False
@@ -46,6 +49,19 @@ class UsageTile(QWidget):
         self.timer = QTimer(self)
         self.timer.setInterval(CHECK_MS)
         self.timer.timeout.connect(self.refresh)
+
+    def _load(self) -> WeeklyUsage | None:
+        saved = self.ctx.settings.get("last")
+        try:
+            usage = WeeklyUsage(float(saved["percent"]), datetime.fromisoformat(saved["resets_at"]))
+        except (TypeError, KeyError, ValueError):
+            return None
+        return usage if usage.resets_at > datetime.now(timezone.utc) else None  # last week's value is useless
+
+    def _save(self, usage: WeeklyUsage) -> None:
+        if usage.resets_at is not None:
+            self.ctx.settings["last"] = {"percent": usage.percent, "resets_at": usage.resets_at.isoformat()}
+            self.ctx.save()
 
     def showEvent(self, event) -> None:
         self.timer.start()
@@ -68,17 +84,26 @@ class UsageTile(QWidget):
         self._fetched_at = time.monotonic()
         if error is None:
             self.usage, self.error = usage, None
+            self._save(usage)
         else:
             self.error = str(error) if isinstance(error, UsageError) else "Fehler"
         self.render()
 
     def render(self) -> None:
-        if self.error and self.usage is None:
-            self.row.show_value(self.error, 0.0, left="Claude Woche")
-        elif self.usage is not None:
-            target = pace_target(self.usage.resets_at, datetime.now(timezone.utc))
-            left = "Claude Woche" if target is None else f"Soll {target:.0f} %"
-            self.row.show_value(f"{self.usage.percent:.0f} %", self.usage.percent / 100, left=left)
+        if self.usage is None:
+            self.row.show_value(self.error or "–", 0.0, left="Claude Woche")
+            return
+        now = datetime.now(timezone.utc)
+        left = format_reset(self.usage.resets_at, now) or "Claude Woche"
+        if self.error:
+            left += " (alt)"
+        target = pace_target(self.usage.resets_at, now)
+        self.row.show_value(
+            f"{self.usage.percent:.0f} %",
+            self.usage.percent / 100,
+            left=left,
+            marker=None if target is None else target / 100,
+        )
 
 
 class UsagePlugin(Plugin):
@@ -88,7 +113,7 @@ class UsagePlugin(Plugin):
     has_detail = False
 
     def create_tile(self, ctx: PluginContext) -> QWidget:
-        return UsageTile()
+        return UsageTile(ctx)
 
     def tile_clicked(self, ctx: PluginContext) -> None:
         app = find_desktop_app()
