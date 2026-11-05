@@ -1,8 +1,9 @@
-"""Claude usage: 2x1 tile with the weekly limit used so far (claude.ai + Claude Code) with a line at the daily target. A click opens Claude Desktop."""
+"""Claude usage: 2x1 tile with the weekly limit used so far (claude.ai + Claude Code) with a line at the daily target. A click opens Claude Desktop, or starts the sign-in when logged out."""
 
 import shutil
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 from PySide6.QtCore import QProcess, QTimer
 from PySide6.QtWidgets import QVBoxLayout, QWidget
@@ -17,6 +18,8 @@ RETRY_S = 30  # after a failure that may fix itself (offline, logged in again, t
 CHECK_MS = 30_000
 FIRST_CHECK_MS = 200
 DESKTOP_APPS = ("claude-desktop",)
+TERMINALS = ("konsole", "gnome-terminal", "xterm")
+LOGIN_ARGS = ["auth", "login"]
 
 
 def find_desktop_app() -> str | None:
@@ -25,6 +28,20 @@ def find_desktop_app() -> str | None:
         if path:
             return path
     return None
+
+
+def find_claude() -> str | None:
+    return shutil.which("claude") or (str(p) if (p := Path.home() / ".local" / "bin" / "claude").exists() else None)
+
+
+def start_login() -> bool:
+    """`claude auth login` in a terminal window: it opens the browser and asks for the code if needed."""
+    claude = find_claude()
+    for name in TERMINALS:
+        terminal = shutil.which(name)
+        if claude and terminal:
+            return QProcess.startDetached(terminal, ["-e", claude, *LOGIN_ARGS])
+    return False
 
 
 class UsageTile(QWidget):
@@ -38,6 +55,7 @@ class UsageTile(QWidget):
         self.usage: WeeklyUsage | None = self._load()
         self.error: str | None = None
         self.hint = ""
+        self.needs_login = False
         self._fetched_at = 0.0
         self._interval = REFRESH_S
         self._fetching = False
@@ -87,11 +105,13 @@ class UsageTile(QWidget):
         self._fetched_at = time.monotonic()
         if error is None:
             self.usage, self.error, self.hint, self._interval = usage, None, "", REFRESH_S
+            self.needs_login = False
             self._save(usage)
         else:
             known = isinstance(error, UsageError)
             self.error = error.short if known else "Fehler"
             self.hint = error.hint if known else str(error)
+            self.needs_login = known and error.login
             self._interval = REFRESH_S if not known or error.slow else RETRY_S
         self.render()
 
@@ -119,12 +139,19 @@ class UsagePlugin(Plugin):
     order = 40  # after the other 2x1 tiles: flows into the cell under the System tile
     has_detail = False
 
+    tile: UsageTile | None = None
+
     def create_tile(self, ctx: PluginContext) -> QWidget:
-        return UsageTile(ctx)
+        self.tile = UsageTile(ctx)
+        return self.tile
 
     def tile_clicked(self, ctx: PluginContext) -> None:
-        app = find_desktop_app()
-        if app and QProcess.startDetached(app, []):
+        if self.tile is not None and self.tile.needs_login:
+            started = start_login()
+        else:
+            app = find_desktop_app()
+            started = bool(app) and QProcess.startDetached(app, [])
+        if started:
             ctx.request_close()
 
     def create_widget(self, ctx: PluginContext) -> QWidget:

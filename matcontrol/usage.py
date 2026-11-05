@@ -24,15 +24,16 @@ class WeeklyUsage:
 
 
 class UsageError(Exception):
-    """`short` fits into the tile (German), `hint` explains what to do (tooltip). `slow`: do not retry soon."""
+    """`short` fits into the tile (German), `hint` explains what to do (tooltip). `slow`: do not retry soon.
+    `login`: a sign-in fixes it (a click on the tile starts it)."""
 
-    def __init__(self, short: str, hint: str = "", slow: bool = False) -> None:
+    def __init__(self, short: str, hint: str = "", slow: bool = False, login: bool = False) -> None:
         super().__init__(short)
-        self.short, self.hint, self.slow = short, hint, slow
+        self.short, self.hint, self.slow, self.login = short, hint, slow, login
 
 
-LOGGED_OUT = UsageError("Abgemeldet", "Claude Code ist abgemeldet: im Terminal `claude auth login` ausführen")
-EXPIRED = UsageError("Abgelaufen", "Token abgelaufen: Claude Code kurz benutzen, es erneuert den Token")
+LOGGED_OUT = UsageError("Abgemeldet", "Claude Code ist abgemeldet: klicken, um sich anzumelden", login=True)
+EXPIRED = UsageError("Abgelaufen", "Token abgelaufen: klicken, um sich neu anzumelden", login=True)
 
 
 def read_token(path: Path = CREDENTIALS, now: float | None = None) -> str:

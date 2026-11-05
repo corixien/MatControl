@@ -67,7 +67,7 @@ def test_blank_token_means_logged_out(tmp_path):
 def test_retry_soon_after_a_fixable_error_but_not_after_throttling(qapp, tmp_path):
     tile = usage_plugin.UsageTile(make_ctx(tmp_path))
     tile._fetched(None, usage.LOGGED_OUT)
-    assert tile._interval == usage_plugin.RETRY_S and "auth login" in tile.toolTip()
+    assert tile._interval == usage_plugin.RETRY_S and "klicken" in tile.toolTip()
     tile._fetched(None, usage.UsageError("Gedrosselt", "x", slow=True))
     assert tile._interval == usage_plugin.REFRESH_S
     tile._fetched(usage.WeeklyUsage(1.0, datetime.now(timezone.utc) + timedelta(days=1)), None)
@@ -119,5 +119,23 @@ def test_click_launches_desktop_app(qapp, tmp_path, monkeypatch):
     ctx = PluginContext(Config(tmp_path / "c.json"), "usage")
     closed = []
     ctx.close_requested.connect(lambda: closed.append(1))
+    usage_plugin.PLUGIN.tile = None
     usage_plugin.PLUGIN.tile_clicked(ctx)
     assert launched == ["/usr/bin/claude-desktop"] and closed
+
+
+def test_click_starts_the_sign_in_when_logged_out(qapp, tmp_path, monkeypatch):
+    launched = []
+    monkeypatch.setattr(usage_plugin.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(usage_plugin.QProcess, "startDetached", lambda program, args: launched.append((program, args)) or True)
+    ctx = make_ctx(tmp_path)
+    closed = []
+    ctx.close_requested.connect(lambda: closed.append(1))
+    tile = usage_plugin.PLUGIN.create_tile(ctx)
+    tile._fetched(None, usage.LOGGED_OUT)
+    usage_plugin.PLUGIN.tile_clicked(ctx)
+    assert launched == [("/usr/bin/konsole", ["-e", "/usr/bin/claude", "auth", "login"])] and closed
+    tile._fetched(usage.WeeklyUsage(1.0, datetime.now(timezone.utc) + timedelta(days=1)), None)
+    launched.clear()
+    usage_plugin.PLUGIN.tile_clicked(ctx)
+    assert launched == [("/usr/bin/claude-desktop", [])]
