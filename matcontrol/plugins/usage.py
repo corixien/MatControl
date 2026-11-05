@@ -13,6 +13,7 @@ from ..usage import UsageError, WeeklyUsage, fetch_weekly_usage, format_reset, p
 from .system import MetricRow
 
 REFRESH_S = 300  # the endpoint is undocumented and rate limited: ask rarely
+RETRY_S = 30  # after a failure that may fix itself (offline, logged in again, token renewed)
 CHECK_MS = 30_000
 FIRST_CHECK_MS = 200
 DESKTOP_APPS = ("claude-desktop",)
@@ -36,7 +37,9 @@ class UsageTile(QWidget):
         self.ctx = ctx
         self.usage: WeeklyUsage | None = self._load()
         self.error: str | None = None
+        self.hint = ""
         self._fetched_at = 0.0
+        self._interval = REFRESH_S
         self._fetching = False
         self.row = MetricRow("Claude Woche", dim_left=False)
 
@@ -73,7 +76,7 @@ class UsageTile(QWidget):
         super().hideEvent(event)
 
     def refresh(self) -> None:
-        if self._fetching or not self.isVisible() or time.monotonic() - self._fetched_at < REFRESH_S:
+        if self._fetching or not self.isVisible() or time.monotonic() - self._fetched_at < self._interval:
             self.render()
             return
         self._fetching = True
@@ -83,13 +86,17 @@ class UsageTile(QWidget):
         self._fetching = False
         self._fetched_at = time.monotonic()
         if error is None:
-            self.usage, self.error = usage, None
+            self.usage, self.error, self.hint, self._interval = usage, None, "", REFRESH_S
             self._save(usage)
         else:
-            self.error = str(error) if isinstance(error, UsageError) else "Fehler"
+            known = isinstance(error, UsageError)
+            self.error = error.short if known else "Fehler"
+            self.hint = error.hint if known else str(error)
+            self._interval = REFRESH_S if not known or error.slow else RETRY_S
         self.render()
 
     def render(self) -> None:
+        self.setToolTip(self.hint if self.error else "")
         if self.usage is None:
             self.row.show_value(self.error or "–", 0.0, left="Claude Woche")
             return

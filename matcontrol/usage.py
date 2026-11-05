@@ -24,7 +24,15 @@ class WeeklyUsage:
 
 
 class UsageError(Exception):
-    """Message is shown to the user (German)."""
+    """`short` fits into the tile (German), `hint` explains what to do (tooltip). `slow`: do not retry soon."""
+
+    def __init__(self, short: str, hint: str = "", slow: bool = False) -> None:
+        super().__init__(short)
+        self.short, self.hint, self.slow = short, hint, slow
+
+
+LOGGED_OUT = UsageError("Abgemeldet", "Claude Code ist abgemeldet: im Terminal `claude auth login` ausführen")
+EXPIRED = UsageError("Abgelaufen", "Token abgelaufen: Claude Code kurz benutzen, es erneuert den Token")
 
 
 def read_token(path: Path = CREDENTIALS, now: float | None = None) -> str:
@@ -32,10 +40,12 @@ def read_token(path: Path = CREDENTIALS, now: float | None = None) -> str:
         oauth = json.loads(path.read_text())["claudeAiOauth"]
         token = oauth["accessToken"]
     except (OSError, ValueError, KeyError, TypeError):
-        raise UsageError("Nicht bei Claude Code angemeldet") from None
+        raise LOGGED_OUT from None
+    if not isinstance(token, str) or not token:
+        raise LOGGED_OUT  # Claude Code blanks the file on logout
     expires_ms = oauth.get("expiresAt")
     if isinstance(expires_ms, (int, float)) and expires_ms / 1000 <= (time.time() if now is None else now):
-        raise UsageError("Token abgelaufen, Claude Code starten")
+        raise EXPIRED
     return token
 
 
@@ -44,7 +54,7 @@ def parse_usage(data: dict) -> WeeklyUsage:
         week = data["seven_day"]
         percent = float(week["utilization"])
     except (KeyError, TypeError, ValueError):
-        raise UsageError("Unerwartete Antwort") from None
+        raise UsageError("Fehler", "Unerwartete Antwort von Anthropic", slow=True) from None
     resets_at = None
     raw = week.get("resets_at")
     if isinstance(raw, str):
@@ -66,10 +76,12 @@ def fetch_weekly_usage() -> WeeklyUsage:
             return parse_usage(json.load(response))
     except urllib.error.HTTPError as exc:
         if exc.code == 401:
-            raise UsageError("Token abgelaufen, Claude Code starten") from None
-        raise UsageError("Limit-Abfrage gedrosselt" if exc.code == 429 else f"Fehler {exc.code}") from None
+            raise EXPIRED from None
+        if exc.code == 429:
+            raise UsageError("Gedrosselt", "Anthropic drosselt die Abfrage, später neuer Versuch", slow=True) from None
+        raise UsageError(f"Fehler {exc.code}", "Abfrage fehlgeschlagen", slow=True) from None
     except (urllib.error.URLError, OSError, ValueError):
-        raise UsageError("Keine Verbindung") from None
+        raise UsageError("Offline", "Keine Verbindung zu Anthropic") from None
 
 
 def pace_target(resets_at: datetime | None, now: datetime | None = None) -> float | None:

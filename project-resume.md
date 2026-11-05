@@ -2,11 +2,11 @@
 
 > Instruction for Claude: read this whole file first. Then read every file under "Must read before any change". Do not modify anything until you have fully understood the project. Keep this file updated as you work (see "Maintenance rules").
 
-Last updated: 2026-10-21
+Last updated: 2026-11-05
 
 ## 1. What this project is
 MatControl: Python 3 + PySide6 control center for Fedora/KDE (Plasma 6, Wayland). A tray popup slides down under the top panel; the home page is a 4-column grid of Samsung-style tiles, one plugin per tile (click icon = on/off, click beside = details). Dark flat theme derived from base color #1a242f, everything animates. UI language German. Public repo `corixien/MatControl`, no secrets.
-Plugins, all done: Usage (2x1 under System: weekly Claude limit % + reset countdown + bar line at the daily target (14.3 % x started days since the reset); last value cached in settings, shown as "(alt)" when the token is expired from the undocumented `api.anthropic.com/api/oauth/usage` endpoint using the Claude Code OAuth token in `~/.claude/.credentials.json`, read-only; click opens `claude-desktop`), System (view-only 2x2 tile top right: CPU, RAM, network; click opens the system monitor), Audio Split (play audio on several outputs, volume + delay in ms per device), Update (dnf + flatpak check, update command via pkexec with live log), Network (restart NetworkManager via pkexec, shows connection state).
+Plugins, all done: Usage (2x1 under System: weekly Claude limit % + reset countdown + bar line at the daily target (14.3 % x started days since the reset); last value cached in settings, shown as "(alt)" when a fetch fails; short errors (Abgemeldet/Abgelaufen/Offline/Gedrosselt) + tooltip hint; blank token in `.credentials.json` = Claude Code logged out (needs `claude auth login`, seen 2026-11-05) from the undocumented `api.anthropic.com/api/oauth/usage` endpoint using the Claude Code OAuth token in `~/.claude/.credentials.json`, read-only; click opens `claude-desktop`), System (view-only 2x2 tile top right: CPU, RAM, network; click opens the system monitor), Audio Split (play audio on several outputs, volume + delay in ms per device), Update (dnf + flatpak check, update command via pkexec with live log), Network (restart NetworkManager via pkexec, shows connection state).
 The program is installed for the user (`./install.sh`): launcher `~/.local/bin/matcontrol`, menu entry, autostart (hidden in tray), KWin placement script.
 
 ## 2. Must read before any change
@@ -27,7 +27,7 @@ The program is installed for the user (`./install.sh`): launcher `~/.local/bin/m
 Run from `~/MatControl`.
 - Setup: `python3 -m venv --system-site-packages .venv && .venv/bin/pip install -r requirements-dev.txt`
 - Run: `.venv/bin/python -m matcontrol`
-- Test: `.venv/bin/python -m pytest` (headless, 90 tests).
+- Test: `.venv/bin/python -m pytest` (headless, 95 tests).
 - Install as program: `./install.sh` (`--uninstall`, `--no-autostart`, `--no-kwin`, `--no-deps`).
 - Restart the running instance after code changes: `pkill -f "[p]ython -m matcontrol"; setsid -f ~/.local/bin/matcontrol --minimized`. After editing the KWin script run `kwin/install.sh` (KWin does not reload an upgraded script by itself).
 - Push: straight to `main`, never PRs: `git -c credential.helper= -c credential.helper='!gh auth git-credential' push origin main` (the stored libsecret credential is stale).

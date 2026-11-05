@@ -28,9 +28,9 @@ def test_read_token(tmp_path):
     path = tmp_path / "c.json"
     path.write_text(json.dumps({"claudeAiOauth": {"accessToken": "t", "expiresAt": 2_000_000_000_000}}))
     assert usage.read_token(path, now=1.0) == "t"
-    with pytest.raises(usage.UsageError, match="abgelaufen"):
+    with pytest.raises(usage.UsageError, match="Abgelaufen"):
         usage.read_token(path, now=3_000_000_000)
-    with pytest.raises(usage.UsageError, match="angemeldet"):
+    with pytest.raises(usage.UsageError, match="Abgemeldet"):
         usage.read_token(tmp_path / "missing.json")
 
 
@@ -57,6 +57,23 @@ def make_ctx(tmp_path):
     return PluginContext(Config(tmp_path / "c.json"), "usage")
 
 
+def test_blank_token_means_logged_out(tmp_path):
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps({"claudeAiOauth": {"accessToken": "", "refreshToken": "", "expiresAt": 0}}))
+    with pytest.raises(usage.UsageError, match="Abgemeldet"):
+        usage.read_token(path)
+
+
+def test_retry_soon_after_a_fixable_error_but_not_after_throttling(qapp, tmp_path):
+    tile = usage_plugin.UsageTile(make_ctx(tmp_path))
+    tile._fetched(None, usage.LOGGED_OUT)
+    assert tile._interval == usage_plugin.RETRY_S and "auth login" in tile.toolTip()
+    tile._fetched(None, usage.UsageError("Gedrosselt", "x", slow=True))
+    assert tile._interval == usage_plugin.REFRESH_S
+    tile._fetched(usage.WeeklyUsage(1.0, datetime.now(timezone.utc) + timedelta(days=1)), None)
+    assert tile._interval == usage_plugin.REFRESH_S and tile.toolTip() == ""
+
+
 def test_format_reset():
     now = datetime(2026, 10, 20, tzinfo=timezone.utc)
     assert usage.format_reset(now + timedelta(days=2, hours=3, minutes=5), now) == "Reset in 2d 3h"
@@ -76,10 +93,10 @@ def test_tile_shows_reset_and_target_marker(qapp, tmp_path):
 def test_tile_keeps_last_value_when_fetch_fails_and_after_restart(qapp, tmp_path):
     ctx = make_ctx(tmp_path)
     tile = usage_plugin.UsageTile(ctx)
-    tile._fetched(None, usage.UsageError("Token abgelaufen, Claude Code starten"))
-    assert tile.row.right.text() == "Token abgelaufen, Claude Code starten"
+    tile._fetched(None, usage.EXPIRED)
+    assert tile.row.right.text() == "Abgelaufen"
     tile._fetched(usage.WeeklyUsage(42.0, datetime.now(timezone.utc) + timedelta(days=2)), None)
-    tile._fetched(None, usage.UsageError("Keine Verbindung"))
+    tile._fetched(None, usage.UsageError("Offline", "x"))
     assert tile.row.right.text() == "42 %" and tile.row.left.text().endswith("(alt)")
     restarted = usage_plugin.UsageTile(ctx)  # new app start, still no connection
     restarted.render()
